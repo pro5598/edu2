@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BookOpen,
   Edit,
@@ -18,6 +18,7 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import Link from "next/link";
+import VideoPlayer from "../../../components/VideoPlayer";
 
 const InstructorMyCoursesPage = () => {
   const [showReviewsModal, setShowReviewsModal] = useState(false);
@@ -28,107 +29,28 @@ const InstructorMyCoursesPage = () => {
   const [currentVideoLesson, setCurrentVideoLesson] = useState(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [currentNote, setCurrentNote] = useState(null);
-  const [courses, setCourses] = useState([
-    {
-      id: 1,
-      title: "React Front To Back",
-      thumbnail:
-        "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
-      price: 60,
-      originalPrice: 84.99,
-      category: "Web Development",
-      reviews: [
-        {
-          id: 1,
-          studentName: "Sarah Johnson",
-          rating: 5,
-          comment:
-            "Excellent course! Very detailed and well-structured. The instructor explains complex concepts in a simple way.",
-          date: "2024-01-15",
-        },
-        {
-          id: 2,
-          studentName: "Mike Chen",
-          rating: 5,
-          comment:
-            "Perfect for beginners. Great explanations and practical examples. Highly recommended!",
-          date: "2024-01-12",
-        },
-        {
-          id: 3,
-          studentName: "Emma Wilson",
-          rating: 4,
-          comment:
-            "Good content overall. Would love more advanced topics and real-world projects.",
-          date: "2024-01-10",
-        },
-      ],
-    },
-    {
-      id: 2,
-      title: "PHP Beginner to Advanced",
-      thumbnail:
-        "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=400&h=300&fit=crop",
-      price: 80,
-      originalPrice: 100,
-      category: "Backend Development",
-      reviews: [
-        {
-          id: 1,
-          studentName: "John Smith",
-          rating: 5,
-          comment:
-            "Great PHP course! Covers everything from basics to advanced concepts.",
-          date: "2024-01-14",
-        },
-        {
-          id: 2,
-          studentName: "Maria Garcia",
-          rating: 4,
-          comment:
-            "Good course structure. Would appreciate more modern PHP frameworks coverage.",
-          date: "2024-01-11",
-        },
-      ],
-    },
-    {
-      id: 3,
-      title: "Angular Zero to Mastery",
-      thumbnail:
-        "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400&h=300&fit=crop",
-      price: 40,
-      originalPrice: 90,
-      category: "Frontend Development",
-      reviews: [
-        {
-          id: 1,
-          studentName: "Alex Thompson",
-          rating: 5,
-          comment:
-            "Excellent Angular course! Very up-to-date with the latest Angular features.",
-          date: "2024-01-13",
-        },
-      ],
-    },
-    {
-      id: 4,
-      title: "Node.js Complete Guide",
-      thumbnail:
-        "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=300&fit=crop",
-      price: 75,
-      originalPrice: 95,
-      category: "Backend Development",
-      reviews: [
-        {
-          id: 1,
-          studentName: "Chris Lee",
-          rating: 5,
-          comment: "Outstanding Node.js course! The best I've taken so far.",
-          date: "2024-01-16",
-        },
-      ],
-    },
-  ]);
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCourses = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/instructor/courses');
+      if (!response.ok) {
+        throw new Error('Failed to fetch courses');
+      }
+      const data = await response.json();
+      setCourses(data.courses || []);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCourses();
+  }, []);
 
   // Form state for creating new course
   const [newCourse, setNewCourse] = useState({
@@ -166,9 +88,23 @@ const InstructorMyCoursesPage = () => {
     notes: [],
   });
 
-  const openReviewsModal = (course) => {
+  const openReviewsModal = async (course) => {
     setSelectedCourse(course);
     setShowReviewsModal(true);
+    
+    try {
+      const response = await fetch(`/api/instructor/courses/${course._id}/reviews`);
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedCourse(prev => ({
+          ...prev,
+          reviews: data.reviews,
+          reviewStats: data.stats
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    }
   };
 
   const closeReviewsModal = () => {
@@ -343,17 +279,31 @@ const InstructorMyCoursesPage = () => {
     setCurrentVideoLesson(null);
   };
 
-  const handleVideoUpload = (file) => {
+  const handleVideoUpload = async (file) => {
     if (currentVideoLesson) {
       const { chapterIndex, lessonIndex } = currentVideoLesson;
-      handleLessonChange(chapterIndex, lessonIndex, "videoFile", file);
-      handleLessonChange(chapterIndex, lessonIndex, "videoType", "upload");
-      handleLessonChange(
-        chapterIndex,
-        lessonIndex,
-        "videoUrl",
-        URL.createObjectURL(file)
-      );
+      
+      try {
+        const formData = new FormData();
+        formData.append('video', file);
+        
+        const response = await fetch('/api/uploads/videos', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          handleLessonChange(chapterIndex, lessonIndex, "videoFile", file);
+          handleLessonChange(chapterIndex, lessonIndex, "videoType", "upload");
+          handleLessonChange(chapterIndex, lessonIndex, "videoUrl", result.videoUrl);
+        } else {
+          alert('Failed to upload video');
+        }
+      } catch (error) {
+        console.error('Error uploading video:', error);
+        alert('Error uploading video');
+      }
     }
   };
 
@@ -415,7 +365,7 @@ const InstructorMyCoursesPage = () => {
     }));
   };
 
-  const handleSubmitCourse = (e) => {
+  const handleSubmitCourse = async (e) => {
     e.preventDefault();
 
     // Validate form
@@ -424,27 +374,52 @@ const InstructorMyCoursesPage = () => {
       return;
     }
 
-    // Create new course object
-    const courseToAdd = {
-      id: courses.length + 1,
-      title: newCourse.title,
-      thumbnail: newCourse.thumbnail
-        ? URL.createObjectURL(newCourse.thumbnail)
-        : "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop",
-      price: parseFloat(newCourse.price),
-      originalPrice: newCourse.originalPrice
-        ? parseFloat(newCourse.originalPrice)
-        : parseFloat(newCourse.price),
-      category: newCourse.category,
-      reviews: [],
-    };
+    try {
+      const formData = new FormData();
+      
+      // Add course data
+      const courseData = {
+        title: newCourse.title,
+        description: newCourse.description,
+        category: newCourse.category,
+        level: newCourse.level,
+        price: parseFloat(newCourse.price),
+        originalPrice: newCourse.originalPrice ? parseFloat(newCourse.originalPrice) : parseFloat(newCourse.price),
+        tags: newCourse.tags,
+        requirements: newCourse.requirements,
+        learningObjectives: newCourse.learningObjectives,
+        language: newCourse.language || 'English'
+      };
+      
+      formData.append('courseData', JSON.stringify(courseData));
+      
+      // Add thumbnail if exists
+      if (newCourse.thumbnail) {
+        formData.append('thumbnail', newCourse.thumbnail);
+      }
 
-    // Add to courses array
-    setCourses((prev) => [...prev, courseToAdd]);
+      const response = await fetch('/api/instructor/courses', {
+        method: 'POST',
+        body: formData,
+      });
 
-    // Reset form and close
-    handleCancelCreate();
-    alert("Course created successfully!");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create course');
+      }
+
+      const result = await response.json();
+      
+      // Add the new course to the local state
+      setCourses((prev) => [...prev, result.course]);
+
+      // Reset form and close
+      handleCancelCreate();
+      alert("Course created successfully!");
+    } catch (error) {
+      console.error('Error creating course:', error);
+      alert(error.message || 'Failed to create course. Please try again.');
+    }
   };
 
   const renderStars = (rating) => {
@@ -473,19 +448,16 @@ const InstructorMyCoursesPage = () => {
   };
 
   const categories = [
-    "Web Development",
-    "Backend Development",
-    "Frontend Development",
-    "Mobile Development",
-    "Data Science",
-    "Machine Learning",
-    "DevOps",
-    "Database",
-    "UI/UX Design",
-    "Other",
+    "programming",
+    "design",
+    "business",
+    "marketing",
+    "photography",
+    "music",
+    "other",
   ];
 
-  const levels = ["Beginner", "Intermediate", "Advanced", "All Levels"];
+  const levels = ["beginner", "intermediate", "advanced"];
 
   return (
     <div className="w-full p-3 sm:p-4 lg:p-6">
@@ -516,17 +488,22 @@ const InstructorMyCoursesPage = () => {
 
         {/* Course Grid */}
         <div className="p-4 sm:p-6">
-          {courses.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading courses...</p>
+            </div>
+          ) : courses.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {courses.map((course) => (
                 <div
-                  key={course.id}
+                  key={course._id}
                   className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group flex flex-col"
                 >
                   {/* Course Image */}
                   <div className="relative">
                     <img
-                      src={course.thumbnail}
+                      src={course.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop"}
                       alt={course.title}
                       className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -540,39 +517,59 @@ const InstructorMyCoursesPage = () => {
                         {course.title}
                       </h3>
                       <span className="text-sm text-gray-600">
-                        {course.category}
+                        {course.category ? course.category.charAt(0).toUpperCase() + course.category.slice(1) : ''}
                       </span>
                     </div>
 
-                    {/* Price */}
+                    {/* Price and Stats */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-2">
                         <span className="text-xl font-bold text-gray-800">
                           ${course.price}
                         </span>
-                        {course.originalPrice > course.price && (
+                        {course.originalPrice && course.originalPrice > course.price && (
                           <span className="text-sm line-through text-gray-600">
                             ${course.originalPrice}
                           </span>
                         )}
                       </div>
+                      <div className="text-sm text-gray-600">
+                        {course.enrollmentCount || 0} students
+                      </div>
                     </div>
 
-                    {/* View Reviews Button */}
-                    <div className="mb-4">
+                    {/* Rating and Reviews */}
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {renderStars(course.averageRating || 0)}
+                        <span className="text-sm text-gray-600">
+                          {course.averageRating ? course.averageRating.toFixed(1) : '0.0'}
+                        </span>
+                      </div>
                       <button
                         onClick={() => openReviewsModal(course)}
-                        className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                        className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 text-sm font-medium"
                       >
                         <MessageSquare className="w-4 h-4" />
-                        <span>View Reviews ({course.reviews.length})</span>
+                        <span>({course.totalReviews || 0})</span>
                       </button>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="mb-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        course.isPublished 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {course.isPublished ? 'Published' : 'Draft'}
+                      </span>
                     </div>
 
                     {/* Action Button */}
                     <div className="mt-auto">
                       <Link
-                        href={`/instructor/my-courses/${course.id}/edit`}
+                        href={`/instructor/my-courses/${course._id}/edit`}
                         className="block"
                       >
                         <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 text-sm">
@@ -704,7 +701,7 @@ const InstructorMyCoursesPage = () => {
                           <option value="">Select category</option>
                           {categories.map((cat) => (
                             <option key={cat} value={cat}>
-                              {cat}
+                              {cat.charAt(0).toUpperCase() + cat.slice(1)}
                             </option>
                           ))}
                         </select>
@@ -743,7 +740,7 @@ const InstructorMyCoursesPage = () => {
                           <option value="">Select level</option>
                           {levels.map((level) => (
                             <option key={level} value={level}>
-                              {level}
+                              {level.charAt(0).toUpperCase() + level.slice(1)}
                             </option>
                           ))}
                         </select>
@@ -1258,11 +1255,11 @@ const InstructorMyCoursesPage = () => {
 
             {/* Reviews List */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              {selectedCourse.reviews.length > 0 ? (
+              {selectedCourse.reviews && selectedCourse.reviews.length > 0 ? (
                 <div className="space-y-6">
                   {selectedCourse.reviews.map((review) => (
                     <div
-                      key={review.id}
+                      key={review._id}
                       className="border-b border-gray-200 last:border-b-0 pb-6 last:pb-0"
                     >
                       <div className="flex items-start space-x-4">
@@ -1273,17 +1270,32 @@ const InstructorMyCoursesPage = () => {
                           <div className="flex items-center justify-between mb-2">
                             <div>
                               <h4 className="font-semibold text-gray-900">
-                                {review.studentName}
+                                {review.student?.firstName} {review.student?.lastName}
                               </h4>
                               <div className="flex items-center space-x-2 mt-1">
                                 {renderStars(review.rating)}
                                 <span className="text-sm text-gray-600">
-                                  {formatDate(review.date)}
+                                  {formatDate(review.createdAt)}
                                 </span>
                               </div>
                             </div>
                           </div>
+                          {review.title && (
+                            <h5 className="font-medium text-gray-900 mb-1">{review.title}</h5>
+                          )}
                           <p className="text-gray-800">{review.comment}</p>
+                          {review.pros && review.pros.length > 0 && (
+                            <div className="mt-2">
+                              <span className="text-sm font-medium text-green-600">Pros: </span>
+                              <span className="text-sm text-gray-700">{review.pros.join(', ')}</span>
+                            </div>
+                          )}
+                          {review.cons && review.cons.length > 0 && (
+                            <div className="mt-1">
+                              <span className="text-sm font-medium text-red-600">Cons: </span>
+                              <span className="text-sm text-gray-700">{review.cons.join(', ')}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1446,6 +1458,36 @@ const VideoModal = ({ lesson, onClose, onVideoUpload, onVideoLink }) => {
                     : "https://example.com/video.mp4"
                 }
               />
+              
+              {/* Video Preview */}
+              {videoUrl && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Preview
+                  </label>
+                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                    <VideoPlayer
+                      url={videoUrl}
+                      className="w-full h-full"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Preview for uploaded video */}
+          {videoType === "upload" && (selectedFile || lesson.videoUrl) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Preview
+              </label>
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <VideoPlayer
+                  url={selectedFile ? URL.createObjectURL(selectedFile) : lesson.videoUrl}
+                  className="w-full h-full"
+                />
+              </div>
             </div>
           )}
         </div>

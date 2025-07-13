@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Save,
@@ -11,13 +11,13 @@ import {
   BookOpen,
   Video,
   FileText,
-  Download,
-  Eye,
   Edit,
-  Calendar,
-  Link as LinkIcon,
   Play,
+  Link as LinkIcon,
+  Eye,
+  EyeOff
 } from 'lucide-react';
+import VideoPlayer from '../../../../../components/VideoPlayer';
 import Link from 'next/link';
 
 const EditCoursePage = () => {
@@ -25,66 +25,20 @@ const EditCoursePage = () => {
   const router = useRouter();
 
   const [courseData, setCourseData] = useState({
-    title: "React Front To Back",
-    description: "Complete React development course from basics to advanced concepts",
-    category: "Web Development",
-    level: "Intermediate",
-    price: 60,
-    originalPrice: 84.99,
+    title: "",
+    description: "",
+    category: "",
+    level: "",
+    price: 0,
+    originalPrice: 0,
     thumbnail: "",
-    requirements: ["Basic JavaScript knowledge", "HTML/CSS fundamentals"],
-    objectives: ["Master React fundamentals", "Build real-world projects", "Understand modern React patterns"],
-    chapters: [
-      {
-        id: 1,
-        title: "React Fundamentals",
-        lessons: [
-          { 
-            id: 1, 
-            title: "What is React?", 
-            duration: "19:45", 
-            videoUrl: "https://www.youtube.com/embed/qnrYvsBdtD8",
-            videoType: "youtube", // youtube, upload, link
-            videoFile: null,
-            description: "Introduction to React library and its core concepts"
-          },
-          { 
-            id: 2, 
-            title: "Setting Up Environment", 
-            duration: "25:30", 
-            videoUrl: "",
-            videoType: "upload",
-            videoFile: null,
-            description: "Install Node.js, npm, and create your first React app"
-          }
-        ]
-      }
-    ],
-    notes: [
-      {
-        id: 1,
-        title: "Course Syllabus",
-        description: "Complete course outline and grading criteria",
-        fileName: "react-syllabus.pdf",
-        fileSize: "245 KB",
-        uploadedAt: "2024-01-15",
-        downloadUrl: "#",
-        type: "pdf",
-        file: null
-      },
-      {
-        id: 2,
-        title: "React Cheat Sheet",
-        description: "Quick reference for React hooks and components",
-        fileName: "react-cheatsheet.pdf",
-        fileSize: "180 KB",
-        uploadedAt: "2024-01-20",
-        downloadUrl: "#",
-        type: "pdf",
-        file: null
-      }
-    ]
+    requirements: [],
+    objectives: [],
+    chapters: [],
+    notes: [],
+    isPublished: false
   });
+  const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState('basic');
   const [isSaving, setIsSaving] = useState(false);
@@ -92,6 +46,72 @@ const EditCoursePage = () => {
   const [currentVideoLesson, setCurrentVideoLesson] = useState(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [currentNote, setCurrentNote] = useState(null);
+
+  // Fetch course data on component mount
+  useEffect(() => {
+    const fetchCourse = async () => {
+      try {
+        const response = await fetch(`/api/instructor/courses/${params['course-id']}`);
+        if (response.ok) {
+          const course = await response.json();
+          setCourseData({
+            title: course.title || '',
+            description: course.description || '',
+            category: course.category || '',
+            level: course.level || '',
+            price: course.price || 0,
+            originalPrice: course.originalPrice || 0,
+            thumbnail: course.thumbnail || '',
+            requirements: course.requirements || [],
+            objectives: course.objectives || [],
+            chapters: (course.chapters || []).map(chapter => ({
+              ...chapter,
+              title: chapter.title || '',
+              description: chapter.description || '',
+              lessons: (chapter.lessons || []).map(lesson => ({
+                ...lesson,
+                title: lesson.title || '',
+                description: lesson.description || '',
+                duration: lesson.duration || ''
+              }))
+            })),
+            notes: [],
+            isPublished: course.isPublished || false
+          });
+          
+          // Fetch course notes separately
+          await fetchCourseNotes();
+        } else {
+          console.error('Failed to fetch course');
+        }
+      } catch (error) {
+        console.error('Error fetching course:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchCourseNotes = async () => {
+      try {
+        const response = await fetch(`/api/instructor/courses/${params['course-id']}/notes`);
+        if (response.ok) {
+          const data = await response.json();
+          setCourseData(prev => ({
+            ...prev,
+            notes: data.notes || []
+          }));
+        } else {
+          console.error('Failed to fetch course notes');
+        }
+      } catch (error) {
+        console.error('Error fetching course notes:', error);
+      }
+    };
+
+    if (params['course-id']) {
+      fetchCourse();
+    }
+  }, [params]);
 
   const handleInputChange = (field, value) => {
     setCourseData(prev => ({
@@ -149,49 +169,125 @@ const EditCoursePage = () => {
   };
 
   // Handler for adding new chapters
-  const addChapter = () => {
-    const newChapter = {
-      id: Date.now(),
-      title: "New Chapter",
-      lessons: []
-    };
-    setCourseData(prev => ({
-      ...prev,
-      chapters: [...prev.chapters, newChapter]
-    }));
+  const addChapter = async () => {
+    try {
+      const response = await fetch(`/api/instructor/courses/${params['course-id']}/chapters`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'New Chapter',
+          description: ''
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        const newChapter = {
+          ...result.chapter,
+          title: result.chapter.title || '',
+          description: result.chapter.description || '',
+          lessons: []
+        };
+        setCourseData(prev => ({
+          ...prev,
+          chapters: [...prev.chapters, newChapter]
+        }));
+      } else {
+        alert('Failed to create chapter');
+      }
+    } catch (error) {
+      console.error('Error creating chapter:', error);
+      alert('Error creating chapter');
+    }
   };
 
   // Handler for adding new lessons
-  const addLesson = (chapterIndex) => {
-    const newLesson = {
-      id: Date.now(),
-      title: "New Lesson",
-      duration: "00:00",
-      videoUrl: "",
-      videoType: "upload",
-      videoFile: null,
-      description: ""
-    };
-    setCourseData(prev => ({
-      ...prev,
-      chapters: prev.chapters.map((chapter, index) =>
-        index === chapterIndex
-          ? { ...chapter, lessons: [...chapter.lessons, newLesson] }
-          : chapter
-      )
-    }));
+  const addLesson = async (chapterIndex) => {
+    const chapter = courseData.chapters[chapterIndex];
+    if (!chapter || !chapter._id) {
+      alert('Please save the chapter first');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/instructor/courses/${params['course-id']}/chapters/${chapter._id}/lessons`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'New Lesson',
+          description: '',
+          duration: 0
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        const newLesson = {
+          ...result.lesson,
+          title: result.lesson.title || '',
+          description: result.lesson.description || '',
+          duration: result.lesson.duration || ''
+        };
+        setCourseData(prev => ({
+          ...prev,
+          chapters: prev.chapters.map((chapter, index) =>
+            index === chapterIndex
+              ? { ...chapter, lessons: [...chapter.lessons, newLesson] }
+              : chapter
+          )
+        }));
+      } else {
+        alert('Failed to create lesson');
+      }
+    } catch (error) {
+      console.error('Error creating lesson:', error);
+      alert('Error creating lesson');
+    }
   };
 
   // Handler for removing lessons
-  const removeLesson = (chapterIndex, lessonIndex) => {
-    setCourseData(prev => ({
-      ...prev,
-      chapters: prev.chapters.map((chapter, index) =>
-        index === chapterIndex
-          ? { ...chapter, lessons: chapter.lessons.filter((_, lIndex) => lIndex !== lessonIndex) }
-          : chapter
-      )
-    }));
+  const removeLesson = async (chapterIndex, lessonIndex) => {
+    const chapter = courseData.chapters[chapterIndex];
+    const lesson = chapter.lessons[lessonIndex];
+    
+    if (!lesson._id) {
+      // If lesson doesn't have an ID, just remove from local state
+      setCourseData(prev => ({
+        ...prev,
+        chapters: prev.chapters.map((chapter, index) =>
+          index === chapterIndex
+            ? { ...chapter, lessons: chapter.lessons.filter((_, lIndex) => lIndex !== lessonIndex) }
+            : chapter
+        )
+      }));
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/instructor/courses/${params['course-id']}/chapters/${chapter._id}/lessons/${lesson._id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        setCourseData(prev => ({
+          ...prev,
+          chapters: prev.chapters.map((chapter, index) =>
+            index === chapterIndex
+              ? { ...chapter, lessons: chapter.lessons.filter((_, lIndex) => lIndex !== lessonIndex) }
+              : chapter
+          )
+        }));
+      } else {
+        alert('Failed to delete lesson');
+      }
+    } catch (error) {
+      console.error('Error deleting lesson:', error);
+      alert('Error deleting lesson');
+    }
   };
 
   // Video management functions
@@ -205,12 +301,31 @@ const EditCoursePage = () => {
     setCurrentVideoLesson(null);
   };
 
-  const handleVideoUpload = (file) => {
+  const handleVideoUpload = async (file) => {
     if (currentVideoLesson) {
       const { chapterIndex, lessonIndex } = currentVideoLesson;
-      handleLessonChange(chapterIndex, lessonIndex, 'videoFile', file);
-      handleLessonChange(chapterIndex, lessonIndex, 'videoType', 'upload');
-      handleLessonChange(chapterIndex, lessonIndex, 'videoUrl', URL.createObjectURL(file));
+      
+      try {
+        const formData = new FormData();
+        formData.append('video', file);
+        
+        const response = await fetch('/api/uploads/videos', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          handleLessonChange(chapterIndex, lessonIndex, 'videoFile', file);
+          handleLessonChange(chapterIndex, lessonIndex, 'videoType', 'upload');
+          handleLessonChange(chapterIndex, lessonIndex, 'videoUrl', result.videoUrl);
+        } else {
+          alert('Failed to upload video');
+        }
+      } catch (error) {
+        console.error('Error uploading video:', error);
+        alert('Error uploading video');
+      }
     }
   };
 
@@ -245,46 +360,162 @@ const EditCoursePage = () => {
     setShowNotesModal(true);
   };
 
-  const saveNote = (noteData) => {
-    setCourseData(prev => {
-      if (noteData.index !== undefined) {
-        // Edit existing note
-        return {
-          ...prev,
-          notes: prev.notes.map((note, index) => 
-            index === noteData.index ? { ...noteData, index: undefined } : note
-          )
-        };
+  const saveNote = async (noteData) => {
+    if (!noteData.file) {
+      alert('Please select a file to upload');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('noteData', JSON.stringify({
+        title: noteData.title,
+        description: noteData.description,
+        order: noteData.order || 0
+      }));
+      formData.append('file', noteData.file);
+
+      const url = noteData.index !== undefined 
+        ? `/api/instructor/courses/${params['course-id']}/notes/${noteData._id}`
+        : `/api/instructor/courses/${params['course-id']}/notes`;
+      
+      const method = noteData.index !== undefined ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method: method,
+        body: formData
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        setCourseData(prev => {
+          if (noteData.index !== undefined) {
+            // Edit existing note
+            return {
+              ...prev,
+              notes: prev.notes.map((note, index) => 
+                index === noteData.index ? result.note : note
+              )
+            };
+          } else {
+            // Add new note
+            return {
+              ...prev,
+              notes: [...prev.notes, result.note]
+            };
+          }
+        });
+        
+        alert(noteData.index !== undefined ? 'Note updated successfully!' : 'Note added successfully!');
+        setShowNotesModal(false);
+        setCurrentNote(null);
       } else {
-        // Add new note
-        return {
-          ...prev,
-          notes: [...prev.notes, noteData]
-        };
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Failed to save note'}`);
       }
-    });
-    setShowNotesModal(false);
-    setCurrentNote(null);
+    } catch (error) {
+      console.error('Error saving note:', error);
+      alert('Error saving note');
+    }
   };
 
-  const removeNote = (noteIndex) => {
-    setCourseData(prev => ({
-      ...prev,
-      notes: prev.notes.filter((_, index) => index !== noteIndex)
-    }));
+  const removeNote = async (noteIndex) => {
+    const noteToDelete = courseData.notes[noteIndex];
+    if (!noteToDelete._id) {
+      // If note doesn't have an _id, it's only in local state
+      setCourseData(prev => ({
+        ...prev,
+        notes: prev.notes.filter((_, index) => index !== noteIndex)
+      }));
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this note?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/instructor/courses/${params['course-id']}/notes/${noteToDelete._id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setCourseData(prev => ({
+          ...prev,
+          notes: prev.notes.filter((_, index) => index !== noteIndex)
+        }));
+        alert('Note deleted successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Failed to delete note'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      alert('Error deleting note');
+    }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      console.log('Saving course:', courseData);
-      setTimeout(() => {
-        setIsSaving(false);
+      const formData = new FormData();
+      
+      // Add basic course data
+      formData.append('title', courseData.title);
+      formData.append('description', courseData.description);
+      formData.append('category', courseData.category);
+      formData.append('level', courseData.level);
+      formData.append('price', courseData.price.toString());
+      formData.append('originalPrice', courseData.originalPrice.toString());
+      formData.append('requirements', JSON.stringify(courseData.requirements));
+      formData.append('objectives', JSON.stringify(courseData.objectives));
+      
+      // Add thumbnail if it's a file
+      if (courseData.thumbnailFile) {
+        formData.append('thumbnail', courseData.thumbnailFile);
+      }
+      
+      const response = await fetch(`/api/instructor/courses/${params['course-id']}`, {
+        method: 'PUT',
+        body: formData
+      });
+      
+      if (response.ok) {
         alert('Course updated successfully!');
-      }, 1000);
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.message || 'Failed to update course'}`);
+      }
     } catch (error) {
-      setIsSaving(false);
+      console.error('Error saving course:', error);
       alert('Error saving course');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePublishToggle = async () => {
+    try {
+      const method = courseData.isPublished ? 'DELETE' : 'POST';
+      const response = await fetch(`/api/instructor/courses/${params['course-id']}/publish`, {
+        method: method
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setCourseData(prev => ({
+          ...prev,
+          isPublished: !prev.isPublished
+        }));
+        alert(result.message);
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Failed to update course status'}`);
+      }
+    } catch (error) {
+      console.error('Error toggling publish status:', error);
+      alert('Error updating course status');
     }
   };
 
@@ -293,6 +524,19 @@ const EditCoursePage = () => {
     { id: 'curriculum', label: 'Curriculum', icon: Video },
     { id: 'notes', label: 'Course Notes', icon: FileText },
   ];
+
+  if (loading) {
+    return (
+      <div className="w-full p-3 sm:p-4 lg:p-6">
+        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading course data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -312,10 +556,30 @@ const EditCoursePage = () => {
                   <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
                     Edit Course
                   </h2>
+                  <div className="mt-1">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      courseData.isPublished 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {courseData.isPublished ? 'Published' : 'Draft'}
+                    </span>
+                  </div>
                 </div>
               </div>
               
-              <div className="flex items-center">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handlePublishToggle}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium ${
+                    courseData.isPublished
+                      ? 'bg-yellow-600 text-white hover:bg-yellow-700'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>{courseData.isPublished ? 'Unpublish' : 'Publish'}</span>
+                </button>
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
@@ -379,10 +643,13 @@ const EditCoursePage = () => {
                       onChange={(e) => handleInputChange('category', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                     >
-                      <option value="Web Development">Web Development</option>
-                      <option value="Mobile Development">Mobile Development</option>
-                      <option value="Data Science">Data Science</option>
-                      <option value="Design">Design</option>
+                      <option value="programming">Programming</option>
+                      <option value="design">Design</option>
+                      <option value="business">Business</option>
+                      <option value="marketing">Marketing</option>
+                      <option value="photography">Photography</option>
+                      <option value="music">Music</option>
+                      <option value="other">Other</option>
                     </select>
                   </div>
                 </div>
@@ -409,9 +676,9 @@ const EditCoursePage = () => {
                       onChange={(e) => handleInputChange('level', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                     >
-                      <option value="Beginner">Beginner</option>
-                      <option value="Intermediate">Intermediate</option>
-                      <option value="Advanced">Advanced</option>
+                      <option value="beginner">Beginner</option>
+                      <option value="intermediate">Intermediate</option>
+                      <option value="advanced">Advanced</option>
                     </select>
                   </div>
                   
@@ -445,9 +712,40 @@ const EditCoursePage = () => {
                     Course Thumbnail
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-                    <p className="text-sm text-gray-800">Click to upload or drag and drop</p>
-                    <p className="text-xs text-gray-700">PNG, JPG up to 2MB</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setCourseData(prev => ({
+                            ...prev,
+                            thumbnailFile: file,
+                            thumbnail: URL.createObjectURL(file)
+                          }));
+                        }
+                      }}
+                      className="hidden"
+                      id="thumbnail-upload"
+                    />
+                    <label htmlFor="thumbnail-upload" className="cursor-pointer">
+                      {courseData.thumbnail ? (
+                        <div>
+                          <img
+                            src={courseData.thumbnail}
+                            alt="Course thumbnail"
+                            className="w-32 h-20 object-cover mx-auto mb-2 rounded"
+                          />
+                          <p className="text-sm text-gray-800">Click to change thumbnail</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <Upload className="w-8 h-8 text-gray-700 mx-auto mb-2" />
+                          <p className="text-sm text-gray-800">Click to upload or drag and drop</p>
+                          <p className="text-xs text-gray-700">PNG, JPG up to 2MB</p>
+                        </div>
+                      )}
+                    </label>
                   </div>
                 </div>
 
@@ -500,11 +798,11 @@ const EditCoursePage = () => {
                 
                 <div className="space-y-4">
                   {courseData.chapters.map((chapter, chapterIndex) => (
-                    <div key={chapter.id} className="border border-gray-200 rounded-lg">
+                    <div key={chapter._id || chapter.id || chapterIndex} className="border border-gray-200 rounded-lg">
                       <div className="p-4 bg-gray-50 border-b border-gray-200">
                         <input
                           type="text"
-                          value={chapter.title}
+                          value={chapter.title || ''}
                           onChange={(e) => handleChapterChange(chapterIndex, 'title', e.target.value)}
                           className="w-full font-medium text-gray-900 bg-transparent border-none focus:outline-none placeholder-gray-600"
                           placeholder="Chapter title"
@@ -513,13 +811,13 @@ const EditCoursePage = () => {
                       <div className="p-4">
                         <div className="space-y-3">
                           {chapter.lessons.map((lesson, lessonIndex) => (
-                            <div key={lesson.id} className="border border-gray-200 rounded-lg p-4">
+                            <div key={lesson._id || lesson.id || lessonIndex} className="border border-gray-200 rounded-lg p-4">
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center space-x-3 flex-1">
                                   <Video className="w-5 h-5 text-gray-700" />
                                   <input
                                     type="text"
-                                    value={lesson.title}
+                                    value={lesson.title || ''}
                                     onChange={(e) => handleLessonChange(chapterIndex, lessonIndex, 'title', e.target.value)}
                                     className="flex-1 bg-transparent border-none focus:outline-none placeholder-gray-600 text-gray-900 font-medium"
                                     placeholder="Lesson title"
@@ -528,7 +826,7 @@ const EditCoursePage = () => {
                                 <div className="flex items-center space-x-2">
                                   <input
                                     type="text"
-                                    value={lesson.duration}
+                                    value={lesson.duration || ''}
                                     onChange={(e) => handleLessonChange(chapterIndex, lessonIndex, 'duration', e.target.value)}
                                     className="w-20 text-sm text-gray-900 bg-transparent border border-gray-300 rounded px-2 py-1 text-center placeholder-gray-600"
                                     placeholder="00:00"
@@ -550,7 +848,7 @@ const EditCoursePage = () => {
                               </div>
                               
                               <textarea
-                                value={lesson.description}
+                                value={lesson.description || ''}
                                 onChange={(e) => handleLessonChange(chapterIndex, lessonIndex, 'description', e.target.value)}
                                 className="w-full text-sm text-gray-700 bg-transparent border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-600"
                                 placeholder="Lesson description"
@@ -600,7 +898,7 @@ const EditCoursePage = () => {
                 
                 <div className="space-y-4">
                   {courseData.notes.map((note, index) => (
-                    <div key={note.id} className="border border-gray-200 rounded-lg p-4">
+                    <div key={note._id || `note-${index}`} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-3 flex-1">
                           <div className="p-2 bg-green-100 rounded-lg">
@@ -796,6 +1094,36 @@ const VideoModal = ({ lesson, onClose, onVideoUpload, onVideoLink }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-600 text-gray-900"
                 placeholder={videoType === 'youtube' ? 'https://www.youtube.com/watch?v=...' : 'https://example.com/video.mp4'}
               />
+              
+              {/* Video Preview */}
+              {videoUrl && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Preview
+                  </label>
+                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                    <VideoPlayer
+                      url={videoUrl}
+                      className="w-full h-full"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Preview for uploaded video */}
+          {videoType === 'upload' && (selectedFile || lesson.videoUrl) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Preview
+              </label>
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <VideoPlayer
+                  url={selectedFile ? URL.createObjectURL(selectedFile) : lesson.videoUrl}
+                  className="w-full h-full"
+                />
+              </div>
             </div>
           )}
         </div>

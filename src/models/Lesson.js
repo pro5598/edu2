@@ -20,6 +20,11 @@ const lessonSchema = new mongoose.Schema({
     ref: 'Course',
     required: true
   },
+  chapter: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Chapter',
+    required: true
+  },
   order: {
     type: Number,
     required: true,
@@ -41,6 +46,30 @@ const lessonSchema = new mongoose.Schema({
   videoThumbnail: {
     type: String
   },
+  videoFile: {
+    type: String
+  },
+  videoType: {
+    type: String,
+    enum: ['upload', 'youtube', 'vimeo', 'external'],
+    default: 'upload'
+  },
+  timestamps: [{
+    time: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    title: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    description: {
+      type: String,
+      trim: true
+    }
+  }],
   attachments: [{
     name: {
       type: String,

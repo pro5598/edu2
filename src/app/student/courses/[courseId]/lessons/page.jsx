@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import VideoPlayer from "../../../../../components/VideoPlayer";
 
 const CourseLessonsPage = () => {
   const params = useParams();
@@ -648,14 +649,22 @@ const CourseLessonsPage = () => {
             {activeTab === 'lessons' && (
               <div className="bg-black relative">
                 <div className="aspect-video relative">
-                  {currentLessonData?.isYouTube ? (
-                    <iframe
-                      src={currentLessonData.videoUrl}
+                  {currentLessonData?.videoUrl ? (
+                    <VideoPlayer
+                      url={currentLessonData.videoUrl}
                       className="w-full h-full"
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      title={currentLessonData.title}
+                      onProgress={(state) => {
+                        setCurrentTime(state.playedSeconds);
+                      }}
+                      handleDuration={(duration) => {
+                        setDuration(duration);
+                      }}
+                      onEnded={() => {
+                        // Auto-mark lesson as complete when video ends
+                        if (!completedLessons.includes(currentLesson)) {
+                          toggleLessonCompletion(currentLesson);
+                        }
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-white">
