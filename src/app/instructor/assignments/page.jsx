@@ -14,6 +14,10 @@ import {
   Download,
   Calendar,
   Upload,
+  X,
+  ArrowLeft,
+  Star,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -22,7 +26,11 @@ const InstructorAssignmentsPage = () => {
   const [filterCourse, setFilterCourse] = useState("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
+  const [showSubmissionDetailModal, setShowSubmissionDetailModal] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [gradeInput, setGradeInput] = useState("");
+  const [feedbackInput, setFeedbackInput] = useState("");
 
   // Sample data with submission information
   const assignments = [
@@ -47,9 +55,18 @@ const InstructorAssignmentsPage = () => {
           submittedAt: "2024-02-14",
           status: "graded",
           score: 85,
-          submissionText: "I have created a React Todo app with all the required features...",
-          files: ["todo-app.zip", "readme.md"],
-          feedback: "Great work! Clean code and good implementation of hooks."
+          submissionText: "I have created a React Todo app with all the required features including:\n\n1. Add new todos\n2. Mark todos as complete\n3. Delete todos\n4. Filter todos (All, Active, Completed)\n5. Local storage persistence\n6. Responsive design\n\nThe application uses React hooks (useState, useEffect) for state management and localStorage for data persistence. I've also implemented proper error handling and user feedback.\n\nKey features implemented:\n- Component-based architecture\n- Clean and intuitive UI\n- Proper state management\n- Data persistence\n- Mobile-friendly design",
+          files: [
+            { name: "todo-app.zip", size: "2.5 MB", type: "application/zip" },
+            { name: "readme.md", size: "1.2 KB", type: "text/markdown" },
+            { name: "demo-screenshots.pdf", size: "850 KB", type: "application/pdf" }
+          ],
+          feedback: "Great work! Clean code and good implementation of hooks. Your component structure is well organized and the UI is intuitive. The local storage implementation is perfect. Consider adding unit tests for better code quality.",
+          submissionHistory: [
+            { date: "2024-02-14", action: "Submitted", details: "Initial submission" },
+            { date: "2024-02-15", action: "Graded", details: "Score: 85/100" },
+            { date: "2024-02-15", action: "Feedback Added", details: "Instructor feedback provided" }
+          ]
         },
         {
           id: 2,
@@ -58,9 +75,15 @@ const InstructorAssignmentsPage = () => {
           submittedAt: "2024-02-13",
           status: "submitted",
           score: null,
-          submissionText: "My React Todo application includes all requested functionality...",
-          files: ["react-todo.zip"],
-          feedback: null
+          submissionText: "My React Todo application includes all requested functionality. I've built it using modern React patterns with hooks and functional components.\n\nFeatures implemented:\n- Add, edit, and delete todos\n- Mark todos as complete/incomplete\n- Filter functionality (All, Active, Completed)\n- Local storage for data persistence\n- Responsive design for mobile and desktop\n- Clean, modern UI with CSS modules\n\nI've also added some extra features like:\n- Todo categories/tags\n- Due date functionality\n- Search functionality\n- Dark mode toggle\n\nThe code is well-documented and follows React best practices. I've used TypeScript for better type safety and included a comprehensive README with setup instructions.",
+          files: [
+            { name: "react-todo.zip", size: "3.1 MB", type: "application/zip" },
+            { name: "project-documentation.pdf", size: "1.8 MB", type: "application/pdf" }
+          ],
+          feedback: null,
+          submissionHistory: [
+            { date: "2024-02-13", action: "Submitted", details: "Initial submission with extra features" }
+          ]
         },
         {
           id: 3,
@@ -69,9 +92,16 @@ const InstructorAssignmentsPage = () => {
           submittedAt: "2024-02-15",
           status: "submitted",
           score: null,
-          submissionText: "Here is my completed Todo app with React hooks...",
-          files: ["todo-project.zip", "demo-video.mp4"],
-          feedback: null
+          submissionText: "Here is my completed Todo app with React hooks. I focused on creating a clean, functional application that meets all the requirements.\n\nImplemented features:\n- CRUD operations for todos\n- State management with useState and useReducer\n- Effect hooks for localStorage integration\n- Component composition and reusability\n- CSS-in-JS styling with styled-components\n\nI've also included:\n- Unit tests with Jest and React Testing Library\n- ESLint and Prettier configuration\n- GitHub Actions for CI/CD\n- Deployment to Netlify\n\nThe application is live at: https://mike-react-todo.netlify.app\n\nI've learned a lot about React hooks and modern development practices while building this project.",
+          files: [
+            { name: "todo-project.zip", size: "4.2 MB", type: "application/zip" },
+            { name: "demo-video.mp4", size: "15.3 MB", type: "video/mp4" },
+            { name: "test-coverage-report.html", size: "245 KB", type: "text/html" }
+          ],
+          feedback: null,
+          submissionHistory: [
+            { date: "2024-02-15", action: "Submitted", details: "Submission with live demo and tests" }
+          ]
         }
       ]
     },
@@ -158,6 +188,16 @@ const InstructorAssignmentsPage = () => {
     });
   };
 
+  const formatDateTime = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const getSubmissionStatusColor = (status) => {
     switch (status) {
       case 'graded':
@@ -169,6 +209,15 @@ const InstructorAssignmentsPage = () => {
     }
   };
 
+  const getFileIcon = (type) => {
+    if (type.includes('video')) return '🎥';
+    if (type.includes('image')) return '🖼️';
+    if (type.includes('pdf')) return '📄';
+    if (type.includes('zip')) return '📦';
+    if (type.includes('text')) return '📝';
+    return '📁';
+  };
+
   const openSubmissionsModal = (assignment) => {
     setSelectedAssignment(assignment);
     setShowSubmissionsModal(true);
@@ -177,6 +226,55 @@ const InstructorAssignmentsPage = () => {
   const closeSubmissionsModal = () => {
     setShowSubmissionsModal(false);
     setSelectedAssignment(null);
+  };
+
+  const openSubmissionDetail = (submission) => {
+    setSelectedSubmission(submission);
+    setGradeInput(submission.score?.toString() || "");
+    setFeedbackInput(submission.feedback || "");
+    setShowSubmissionDetailModal(true);
+  };
+
+  const closeSubmissionDetail = () => {
+    setShowSubmissionDetailModal(false);
+    setSelectedSubmission(null);
+    setGradeInput("");
+    setFeedbackInput("");
+  };
+
+  const handleGradeSubmission = () => {
+    // Here you would typically make an API call to save the grade and feedback
+    console.log("Grading submission:", {
+      submissionId: selectedSubmission.id,
+      grade: gradeInput,
+      feedback: feedbackInput
+    });
+    
+    // Update the submission in the local state (in a real app, this would come from the API)
+    if (selectedAssignment && selectedSubmission) {
+      const updatedAssignments = assignments.map(assignment => {
+        if (assignment.id === selectedAssignment.id) {
+          return {
+            ...assignment,
+            submissions: assignment.submissions.map(submission => {
+              if (submission.id === selectedSubmission.id) {
+                return {
+                  ...submission,
+                  score: parseInt(gradeInput),
+                  feedback: feedbackInput,
+                  status: 'graded'
+                };
+              }
+              return submission;
+            })
+          };
+        }
+        return assignment;
+      });
+    }
+    
+    alert("Grade and feedback saved successfully!");
+    closeSubmissionDetail();
   };
 
   return (
@@ -344,7 +442,7 @@ const InstructorAssignmentsPage = () => {
                   onClick={closeSubmissionsModal}
                   className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
                 >
-                  <FileText className="w-5 h-5" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -375,55 +473,51 @@ const InstructorAssignmentsPage = () => {
                         </div>
                       </div>
 
-                      {/* Submission Content */}
+                      {/* Submission Preview */}
                       <div className="mb-3">
-                        <h5 className="text-sm font-medium text-gray-900 mb-2">Submission:</h5>
-                        <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                        <h5 className="text-sm font-medium text-gray-900 mb-2">Submission Preview:</h5>
+                        <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg line-clamp-3">
                           {submission.submissionText}
                         </p>
                       </div>
 
-                      {/* Files */}
+                      {/* Files Preview */}
                       {submission.files.length > 0 && (
                         <div className="mb-3">
-                          <h5 className="text-sm font-medium text-gray-900 mb-2">Files:</h5>
+                          <h5 className="text-sm font-medium text-gray-900 mb-2">Files ({submission.files.length}):</h5>
                           <div className="flex flex-wrap gap-2">
-                            {submission.files.map((file, index) => (
+                            {submission.files.slice(0, 3).map((file, index) => (
                               <div key={index} className="flex items-center space-x-2 bg-blue-50 px-3 py-1 rounded-lg">
-                                <FileText className="w-4 h-4 text-blue-600" />
-                                <span className="text-sm text-blue-800">{file}</span>
-                                <button className="text-blue-600 hover:text-blue-800">
-                                  <Download className="w-3 h-3" />
-                                </button>
+                                <span className="text-sm">{getFileIcon(file.type)}</span>
+                                <span className="text-sm text-blue-800">{file.name}</span>
+                                <span className="text-xs text-blue-600">({file.size})</span>
                               </div>
                             ))}
+                            {submission.files.length > 3 && (
+                              <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-lg">
+                                <span className="text-sm text-gray-600">+{submission.files.length - 3} more</span>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      )}
-
-                      {/* Feedback */}
-                      {submission.feedback && (
-                        <div className="mb-3">
-                          <h5 className="text-sm font-medium text-gray-900 mb-2">Feedback:</h5>
-                          <p className="text-sm text-gray-700 bg-green-50 p-3 rounded-lg">
-                            {submission.feedback}
-                          </p>
                         </div>
                       )}
 
                       {/* Action Buttons */}
                       <div className="flex items-center space-x-2 pt-3 border-t border-gray-200">
+                        <button
+                          onClick={() => openSubmissionDetail(submission)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                        >
+                          View Details
+                        </button>
                         {submission.status === 'submitted' && (
-                          <button className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                          <button
+                            onClick={() => openSubmissionDetail(submission)}
+                            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                          >
                             Grade Submission
                           </button>
                         )}
-                        <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                          View Details
-                        </button>
-                        <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50">
-                          Download All
-                        </button>
                       </div>
                     </div>
                   ))}
@@ -447,6 +541,172 @@ const InstructorAssignmentsPage = () => {
               </button>
               <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Export Submissions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submission Detail Modal */}
+      {showSubmissionDetailModal && selectedSubmission && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={closeSubmissionDetail}
+                    className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">{selectedSubmission.studentName}'s Submission</h3>
+                    <p className="text-sm text-gray-600">{selectedAssignment.title}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSubmissionStatusColor(selectedSubmission.status)}`}>
+                    {selectedSubmission.status}
+                  </span>
+                  {selectedSubmission.score !== null && (
+                    <span className="text-lg font-bold text-gray-900">
+                      {selectedSubmission.score}/{selectedAssignment.maxScore}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-300px)]">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Submission Content */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Student Info */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-2">Student Information</h4>
+                    <div className="space-y-1 text-sm">
+                      <p><span className="font-medium">Name:</span> {selectedSubmission.studentName}</p>
+                      <p><span className="font-medium">Email:</span> {selectedSubmission.studentEmail}</p>
+                      <p><span className="font-medium">Submitted:</span> {formatDateTime(selectedSubmission.submittedAt)}</p>
+                    </div>
+                  </div>
+
+                  {/* Submission Text */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">Submission Content</h4>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
+                        {selectedSubmission.submissionText}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* Files */}
+                  {selectedSubmission.files.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3">Submitted Files</h4>
+                      <div className="space-y-2">
+                        {selectedSubmission.files.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <span className="text-2xl">{getFileIcon(file.type)}</span>
+                              <div>
+                                <p className="font-medium text-gray-900">{file.name}</p>
+                                <p className="text-sm text-gray-600">{file.size} • {file.type}</p>
+                              </div>
+                            </div>
+                            <button className="flex items-center space-x-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                              <Download className="w-4 h-4" />
+                              <span>Download</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submission History */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">Submission History</h4>
+                    <div className="space-y-2">
+                      {selectedSubmission.submissionHistory.map((entry, index) => (
+                        <div key={index} className="flex items-center space-x-3 text-sm">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-gray-600">{formatDateTime(entry.date)}</span>
+                          <span className="font-medium text-gray-900">{entry.action}</span>
+                          <span className="text-gray-600">{entry.details}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grading Panel */}
+                <div className="space-y-6">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-3">Grading</h4>
+                    
+                    {/* Score Input */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Score (out of {selectedAssignment.maxScore})
+                      </label>
+                      <input
+                        type="number"
+                        value={gradeInput}
+                        onChange={(e) => setGradeInput(e.target.value)}
+                        min="0"
+                        max={selectedAssignment.maxScore}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                        placeholder="Enter score"
+                      />
+                    </div>
+
+                    {/* Feedback Input */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Feedback
+                      </label>
+                      <textarea
+                        value={feedbackInput}
+                        onChange={(e) => setFeedbackInput(e.target.value)}
+                        rows={6}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                        placeholder="Provide feedback to the student..."
+                      />
+                    </div>
+
+                    {/* Grade Button */}
+                    <button
+                      onClick={handleGradeSubmission}
+                      disabled={!gradeInput}
+                      className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {selectedSubmission.status === 'graded' ? 'Update Grade' : 'Submit Grade'}
+                    </button>
+                  </div>
+
+                  {/* Current Feedback */}
+                  {selectedSubmission.feedback && (
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-gray-900 mb-2">Current Feedback</h4>
+                      <p className="text-sm text-gray-700">{selectedSubmission.feedback}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={closeSubmissionDetail}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Close
               </button>
             </div>
           </div>
