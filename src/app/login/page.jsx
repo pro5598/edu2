@@ -145,9 +145,9 @@ export default function EduVerseLogin() {
                   />
                   <span className="ml-2 text-sm text-gray-600">Remember me</span>
                 </label>
-                <a href="#" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
                   forgot password?
-                </a>
+                </Link>
               </div>
 
               {/* Login Button */}
@@ -171,9 +171,9 @@ export default function EduVerseLogin() {
             <div className="mt-8 text-center">
               <p className="text-gray-600">
                 Don't have an account?{' '}
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+                <Link href="/register" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
                   Create Account
-                </a>
+                </Link>
               </p>
             </div>
           </div>

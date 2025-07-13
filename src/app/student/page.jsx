@@ -1,4 +1,4 @@
-import StudentDashboardPage from "../(student)/dashboard/page";
+import StudentDashboardPage from "./dashboard/page";
 
 const StudentRootPage = () => {
   return (

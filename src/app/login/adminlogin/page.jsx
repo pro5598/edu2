@@ -1,15 +1,28 @@
 'use client';
-import { React, useState } from 'react';
-import { Eye, EyeOff, ArrowRight, Shield, ArrowLeft } from 'lucide-react';
+import { React, useState, useEffect } from 'react';
+import { Eye, EyeOff, ArrowRight, Shield, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function AdminLogin() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     username: '',
     password: '',
     rememberMe: false
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const messageParam = searchParams.get('message');
+    if (messageParam) {
+      setMessage(decodeURIComponent(messageParam));
+    }
+  }, [searchParams]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -19,10 +32,59 @@ export default function AdminLogin() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Admin login attempt:', formData);
-    // Handle admin login logic here
+    setError('');
+    setMessage('');
+
+    if (!formData.username.trim() || !formData.password.trim()) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+          rememberMe: formData.rememberMe
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage('Login successful! Redirecting to admin dashboard...');
+        localStorage.setItem('authToken', 'admin-authenticated');
+        localStorage.setItem('userRole', 'admin');
+        localStorage.setItem('username', formData.username);
+        
+        setTimeout(() => {
+          router.push(data.redirectPath || '/admin/dashboard');
+        }, 1500);
+      } else {
+        if (response.status === 403 && data.error.includes('inactive')) {
+          setError(data.error);
+        } else {
+          setError(data.error || 'Login failed. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -56,6 +118,20 @@ export default function AdminLogin() {
               <h2 className="text-2xl font-semibold text-gray-800 mb-2">Admin Login</h2>
               <div className="w-12 h-1 bg-gradient-to-r from-red-500 to-red-600 rounded-full mx-auto"></div>
             </div>
+
+            {/* Error/Success Messages */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <span className="text-red-700 text-sm">{error}</span>
+              </div>
+            )}
+            {message && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                <span className="text-green-700 text-sm">{message}</span>
+              </div>
+            )}
 
             {/* Login Form */}
             <div className="space-y-6">
@@ -114,19 +190,29 @@ export default function AdminLogin() {
                   />
                   <span className="ml-2 text-sm text-gray-600">Remember me</span>
                 </label>
-                <a href="#" className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors">
+                <Link href="/forgot-password" className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors">
                   Forgot password?
-                </a>
+                </Link>
               </div>
 
               {/* Login Button */}
               <button
                 onClick={handleSubmit}
-                className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold py-3 px-4 rounded-lg hover:from-red-700 hover:to-red-800 focus:ring-4 focus:ring-red-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold py-3 px-4 rounded-lg hover:from-red-700 hover:to-red-800 focus:ring-4 focus:ring-red-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                <Shield className="w-5 h-5" />
-                <span>Access Admin Panel</span>
-                <ArrowRight className="w-5 h-5" />
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Authenticating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-5 h-5" />
+                    <span>Access Admin Panel</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
             </div>
 

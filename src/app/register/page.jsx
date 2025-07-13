@@ -205,13 +205,13 @@ export default function EduVerseRegistration() {
                   />
                   <span className="ml-2 text-sm text-gray-600">
                     I agree to the{' '}
-                    <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
+                    <Link href="/terms" className="text-blue-600 hover:text-blue-700 font-medium">
                       Terms of Service
-                    </a>{' '}
+                    </Link>{' '}
                     and{' '}
-                    <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
+                    <Link href="/privacy" className="text-blue-600 hover:text-blue-700 font-medium">
                       Privacy Policy
-                    </a>
+                    </Link>
                   </span>
                 </label>
 
@@ -250,9 +250,9 @@ export default function EduVerseRegistration() {
             <div className="mt-8 text-center">
               <p className="text-gray-600">
                 Already have an account?{' '}
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+                <Link href="/login" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
                   Sign In
-                </a>
+                </Link>
               </p>
             </div>
           </div>

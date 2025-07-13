@@ -1,15 +1,28 @@
 'use client';
-import { React, useState } from 'react';
-import { Eye, EyeOff, ArrowRight, User, ArrowLeft, BookOpen } from 'lucide-react';
+import { React, useState, useEffect } from 'react';
+import { Eye, EyeOff, ArrowRight, User, ArrowLeft, BookOpen, AlertCircle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function InstructorLogin() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     username: '',
     password: '',
     rememberMe: false
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const urlMessage = searchParams.get('message');
+    if (urlMessage === 'registration-pending') {
+      setMessage('Registration successful! Your application is pending approval. You will be notified once your account is activated.');
+    }
+  }, [searchParams]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -17,12 +30,54 @@ export default function InstructorLogin() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    if (error) setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Instructor login attempt:', formData);
-    // Handle instructor login logic here
+    
+    if (!formData.username || !formData.password) {
+      setError('Please fill in all fields');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch('/api/auth/instructor/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.username,
+          password: formData.password,
+          rememberMe: formData.rememberMe
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        if (response.status === 403 && data.error && data.error.includes('pending approval')) {
+          setError(data.error);
+          return;
+        }
+        setError(data.error || 'Login failed');
+        return;
+      }
+      
+      // Redirect to instructor dashboard
+      router.push(data.redirectPath || '/instructor/dashboard');
+      
+    } catch (err) {
+      console.error('Network error:', err);
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -56,6 +111,21 @@ export default function InstructorLogin() {
               <h2 className="text-2xl font-semibold text-gray-800 mb-2">Instructor Login</h2>
               <div className="w-12 h-1 bg-gradient-to-r from-green-500 to-green-600 rounded-full mx-auto"></div>
             </div>
+            
+            {/* Messages */}
+            {message && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                <p className="text-green-700">{message}</p>
+              </div>
+            )}
+            
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                <p className="text-red-700">{error}</p>
+              </div>
+            )}
 
             {/* Login Form */}
             <div className="space-y-6">
@@ -114,19 +184,29 @@ export default function InstructorLogin() {
                   />
                   <span className="ml-2 text-sm text-gray-600">Remember me</span>
                 </label>
-                <a href="#" className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors">
+                <Link href="/forgot-password" className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors">
                   Forgot password?
-                </a>
+                </Link>
               </div>
 
               {/* Login Button */}
               <button
                 onClick={handleSubmit}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold py-3 px-4 rounded-lg hover:from-green-700 hover:to-green-800 focus:ring-4 focus:ring-green-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold py-3 px-4 rounded-lg hover:from-green-700 hover:to-green-800 focus:ring-4 focus:ring-green-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                <BookOpen className="w-5 h-5" />
-                <span>Access Teaching Portal</span>
-                <ArrowRight className="w-5 h-5" />
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Signing In...</span>
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="w-5 h-5" />
+                    <span>Access Teaching Portal</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
             </div>
 
@@ -142,10 +222,10 @@ export default function InstructorLogin() {
               <p className="text-gray-600 mb-4">
                 Want to become an instructor?
               </p>
-              <a href="#" className="inline-flex items-center space-x-2 text-green-600 hover:text-green-700 font-semibold transition-colors">
+              <Link href="/register/instructor" className="inline-flex items-center space-x-2 text-green-600 hover:text-green-700 font-semibold transition-colors">
                 <User className="w-4 h-4" />
                 <span>Apply to Teach</span>
-              </a>
+              </Link>
             </div>
           </div>
         </div>

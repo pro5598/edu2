@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { Eye, EyeOff, ArrowRight, User, Mail, Lock, UserCheck, ArrowLeft, BookOpen, Award, FileText, Phone, MapPin } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, User, Mail, Lock, UserCheck, ArrowLeft, BookOpen, Award, FileText, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function InstructorRegistration() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -21,6 +23,10 @@ export default function InstructorRegistration() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -28,12 +34,147 @@ export default function InstructorRegistration() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    if (error) setError('');
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
-  const handleSubmit = (e) => {
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!formData.fullName.trim()) {
+      errors.fullName = 'Full name is required';
+    }
+    
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+    
+    if (!formData.phone.trim()) {
+      errors.phone = 'Phone number is required';
+    }
+    
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    } else if (formData.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters long';
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/.test(formData.password)) {
+      errors.password = 'Password must contain uppercase, lowercase, number, and special character';
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+    
+    if (!formData.expertise) {
+      errors.expertise = 'Area of expertise is required';
+    }
+    
+    if (!formData.experience) {
+      errors.experience = 'Experience level is required';
+    }
+    
+    if (!formData.education.trim()) {
+      errors.education = 'Education information is required';
+    }
+    
+    if (!formData.bio.trim()) {
+      errors.bio = 'Professional bio is required';
+    } else if (formData.bio.trim().length < 50) {
+      errors.bio = 'Bio must be at least 50 characters long';
+    }
+    
+    if (!formData.agreeToTerms) {
+      errors.agreeToTerms = 'You must agree to the terms and conditions';
+    }
+    
+    if (!formData.agreeToInstructorTerms) {
+      errors.agreeToInstructorTerms = 'You must agree to the instructor agreement';
+    }
+    
+    return errors;
+  };
+
+  const parseFullName = (fullName) => {
+    const nameParts = fullName.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    return { firstName, lastName };
+  };
+
+  const generateUsername = (email, firstName, lastName) => {
+    const emailPrefix = email.split('@')[0];
+    const baseUsername = `${firstName.toLowerCase()}_${lastName.toLowerCase()}`.replace(/[^a-z0-9_]/g, '');
+    return baseUsername || emailPrefix;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Instructor registration attempt:', formData);
-    // Handle instructor registration logic here
+    
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError('Please fix the errors below');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    setFieldErrors({});
+    
+    try {
+      const { firstName, lastName } = parseFullName(formData.fullName);
+      const username = generateUsername(formData.email, firstName, lastName);
+      
+      const registrationData = {
+        username,
+        email: formData.email,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        firstName,
+        lastName,
+        phone: formData.phone,
+        bio: formData.bio,
+        expertise: formData.expertise,
+        experience: formData.experience,
+        education: formData.education,
+        linkedinProfile: formData.linkedinProfile || undefined,
+        portfolio: formData.portfolio || undefined
+      };
+      
+      const response = await fetch('/api/auth/instructor/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registrationData),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed');
+      }
+      
+      setSuccess(true);
+      
+      setTimeout(() => {
+        router.push('/login/instructorlogin?message=registration-pending');
+      }, 3000);
+      
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -69,6 +210,24 @@ export default function InstructorRegistration() {
               <p className="text-gray-600 mt-4">Fill out this form to apply as an instructor. We'll review your application and get back to you.</p>
             </div>
 
+            {/* Error and Success Messages */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                <p className="text-red-700">{error}</p>
+              </div>
+            )}
+            
+            {success && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                <div>
+                  <p className="text-green-700 font-medium">Registration Successful!</p>
+                  <p className="text-green-600 text-sm">Your application has been submitted for review. You'll be redirected to the login page shortly.</p>
+                </div>
+              </div>
+            )}
+
             {/* Registration Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Personal Information Section */}
@@ -90,10 +249,15 @@ export default function InstructorRegistration() {
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                        fieldErrors.fullName ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Enter your full name"
                       required
                     />
+                    {fieldErrors.fullName && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.fullName}</p>
+                    )}
                   </div>
 
                   {/* Email */}
@@ -107,10 +271,15 @@ export default function InstructorRegistration() {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                        fieldErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Enter your email"
                       required
                     />
+                    {fieldErrors.email && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
+                    )}
                   </div>
 
                   {/* Phone */}
@@ -124,10 +293,15 @@ export default function InstructorRegistration() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                        fieldErrors.phone ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Enter your phone number"
                       required
                     />
+                    {fieldErrors.phone && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.phone}</p>
+                    )}
                   </div>
 
                   {/* Expertise */}
@@ -140,7 +314,9 @@ export default function InstructorRegistration() {
                       name="expertise"
                       value={formData.expertise}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 ${
+                        fieldErrors.expertise ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                       required
                     >
                       <option value="">Select your expertise</option>
@@ -154,6 +330,9 @@ export default function InstructorRegistration() {
                       <option value="Photography">Photography</option>
                       <option value="Other">Other</option>
                     </select>
+                    {fieldErrors.expertise && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.expertise}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -176,7 +355,9 @@ export default function InstructorRegistration() {
                       name="experience"
                       value={formData.experience}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 ${
+                        fieldErrors.experience ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                       required
                     >
                       <option value="">Select experience level</option>
@@ -185,6 +366,9 @@ export default function InstructorRegistration() {
                       <option value="6-10 years">6-10 years</option>
                       <option value="10+ years">10+ years</option>
                     </select>
+                    {fieldErrors.experience && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.experience}</p>
+                    )}
                   </div>
 
                   {/* Education */}
@@ -198,10 +382,15 @@ export default function InstructorRegistration() {
                       name="education"
                       value={formData.education}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                        fieldErrors.education ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="e.g., Bachelor's in Computer Science"
                       required
                     />
+                    {fieldErrors.education && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.education}</p>
+                    )}
                   </div>
 
                   {/* Bio */}
@@ -215,10 +404,15 @@ export default function InstructorRegistration() {
                       value={formData.bio}
                       onChange={handleInputChange}
                       rows={4}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                        fieldErrors.bio ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Tell us about your professional background, achievements, and teaching philosophy..."
                       required
                     />
+                    {fieldErrors.bio && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.bio}</p>
+                    )}
                   </div>
 
                   {/* LinkedIn Profile */}
@@ -275,7 +469,9 @@ export default function InstructorRegistration() {
                         name="password"
                         value={formData.password}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500"
+                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                          fieldErrors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Create a strong password"
                         required
                       />
@@ -287,6 +483,9 @@ export default function InstructorRegistration() {
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
+                    {fieldErrors.password && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
+                    )}
                   </div>
 
                   {/* Confirm Password */}
@@ -301,7 +500,9 @@ export default function InstructorRegistration() {
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500"
+                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                          fieldErrors.confirmPassword ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Confirm your password"
                         required
                       />
@@ -313,6 +514,9 @@ export default function InstructorRegistration() {
                         {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
+                    {fieldErrors.confirmPassword && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors.confirmPassword}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -330,15 +534,18 @@ export default function InstructorRegistration() {
                   />
                   <span className="ml-2 text-sm text-gray-600">
                     I agree to the{' '}
-                    <a href="#" className="text-green-600 hover:text-green-700 font-medium">
+                    <Link href="/terms" className="text-green-600 hover:text-green-700 font-medium">
                       Terms of Service
-                    </a>{' '}
+                    </Link>{' '}
                     and{' '}
-                    <a href="#" className="text-green-600 hover:text-green-700 font-medium">
+                    <Link href="/privacy" className="text-green-600 hover:text-green-700 font-medium">
                       Privacy Policy
-                    </a>
+                    </Link>
                   </span>
                 </label>
+                {fieldErrors.agreeToTerms && (
+                  <p className="text-sm text-red-600">{fieldErrors.agreeToTerms}</p>
+                )}
 
                 <label className="flex items-start cursor-pointer">
                   <input
@@ -351,22 +558,35 @@ export default function InstructorRegistration() {
                   />
                   <span className="ml-2 text-sm text-gray-600">
                     I agree to the{' '}
-                    <a href="#" className="text-green-600 hover:text-green-700 font-medium">
+                    <Link href="/instructor-agreement" className="text-green-600 hover:text-green-700 font-medium">
                       Instructor Agreement
-                    </a>{' '}
+                    </Link>{' '}
                     and understand the course creation guidelines
                   </span>
                 </label>
+                {fieldErrors.agreeToInstructorTerms && (
+                  <p className="text-sm text-red-600">{fieldErrors.agreeToInstructorTerms}</p>
+                )}
               </div>
 
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold py-3 px-4 rounded-lg hover:from-green-700 hover:to-green-800 focus:ring-4 focus:ring-green-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold py-3 px-4 rounded-lg hover:from-green-700 hover:to-green-800 focus:ring-4 focus:ring-green-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                <UserCheck className="w-5 h-5" />
-                <span>Submit Application</span>
-                <ArrowRight className="w-5 h-5" />
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="w-5 h-5" />
+                    <span>Submit Application</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
             </form>
 

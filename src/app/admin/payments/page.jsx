@@ -1,6 +1,6 @@
 // app/admin/payments/page.jsx
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   CreditCard,
   Search,
@@ -14,88 +14,77 @@ import {
   DollarSign,
   TrendingUp,
   Calendar,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 
 const AdminPaymentsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-
-  const payments = [
-    {
-      id: "PAY-001",
-      studentName: "John Doe",
-      studentEmail: "john.doe@example.com",
-      courseName: "React Masterclass 2024",
-      instructorName: "Sarah Johnson",
-      amount: 60.00,
-      status: "completed",
-      paymentMethod: "Credit Card",
-      paymentGateway: "Stripe",
-    },
-    {
-      id: "PAY-002",
-      studentName: "Emma Wilson",
-      studentEmail: "emma.wilson@example.com",
-      courseName: "JavaScript Fundamentals",
-      instructorName: "Mike Chen",
-      amount: 45.00,
-      status: "pending",
-      paymentMethod: "PayPal",
-      paymentGateway: "PayPal",
-    },
-    {
-      id: "PAY-003",
-      studentName: "David Rodriguez",
-      studentEmail: "david.rodriguez@example.com",
-      courseName: "Node.js Complete Guide",
-      instructorName: "Alex Thompson",
-      amount: 75.00,
-      status: "failed",
-      paymentMethod: "Credit Card",
-      paymentGateway: "Stripe",
-    },
-    {
-      id: "PAY-004",
-      studentName: "Lisa Anderson",
-      studentEmail: "lisa.anderson@example.com",
-      courseName: "Angular Zero to Mastery",
-      instructorName: "Sarah Johnson",
-      amount: 40.00,
-      status: "completed",
-      paymentMethod: "Credit Card",
-      paymentGateway: "Stripe",
-    },
-    {
-      id: "PAY-005",
-      studentName: "Chris Lee",
-      studentEmail: "chris.lee@example.com",
-      courseName: "PHP Beginner to Advanced",
-      instructorName: "Mike Chen",
-      amount: 80.00,
-      status: "refunded",
-      paymentMethod: "PayPal",
-      paymentGateway: "PayPal",
-    },
-  ];
-
-  const paymentStats = {
-    totalRevenue: 15420.50,
-    totalInstructorEarnings: 10794.35,
-    totalTransactions: 342,
-    completedTransactions: 298,
-    pendingTransactions: 23,
-    failedTransactions: 15,
-    refundedTransactions: 6,
-  };
-
-  const filteredPayments = payments.filter((payment) => {
-    const matchesSearch = payment.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || payment.status === filterStatus;
-    
-    return matchesSearch && matchesStatus;
+  const [payments, setPayments] = useState([]);
+  const [paymentStats, setPaymentStats] = useState({
+    totalRevenue: 0,
+    totalInstructorEarnings: 0,
+    totalTransactions: 0,
+    completedTransactions: 0,
+    pendingTransactions: 0,
+    failedTransactions: 0,
+    refundedTransactions: 0
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalPayments: 0
+  });
+
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const params = new URLSearchParams({
+        page: pagination.currentPage.toString(),
+        limit: '20'
+      });
+      
+      if (searchTerm) params.append('search', searchTerm);
+      if (filterStatus !== 'all') params.append('status', filterStatus);
+      
+      const response = await fetch(`/api/admin/payments?${params}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch payments');
+      }
+      
+      const data = await response.json();
+      setPayments(data.payments);
+      setPaymentStats(data.stats);
+      setPagination(data.pagination);
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    fetchPayments();
+  }, [pagination.currentPage, searchTerm, filterStatus]);
+
+  const handleSearch = (value) => {
+    setSearchTerm(value);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+  
+  const handleStatusFilter = (value) => {
+    setFilterStatus(value);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -176,14 +165,14 @@ const AdminPaymentsPage = () => {
                 type="text"
                 placeholder="Search payments..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-800"
               />
             </div>
             
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => handleStatusFilter(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-800"
             >
               <option value="all">All Status</option>
@@ -197,50 +186,114 @@ const AdminPaymentsPage = () => {
 
         {/* Payments Table */}
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Transaction</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Student</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Course</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPayments.map((payment) => (
-                <tr key={payment.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{payment.id}</div>
-                      <div className="text-sm text-gray-700">{payment.paymentGateway}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{payment.studentName}</div>
-                      <div className="text-sm text-gray-700">{payment.studentEmail}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{payment.courseName}</div>
-                      <div className="text-sm text-gray-700">by {payment.instructorName}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">${payment.amount.toFixed(2)}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(payment.status)}`}>
-                      {payment.status}
-                    </span>
-                  </td>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+              <span className="ml-2 text-gray-600">Loading payments...</span>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12">
+              <AlertCircle className="w-8 h-8 text-red-600" />
+              <span className="ml-2 text-red-600">{error}</span>
+              <button 
+                onClick={fetchPayments}
+                className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                Retry
+              </button>
+            </div>
+          ) : payments.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <CreditCard className="w-8 h-8 text-gray-400" />
+              <span className="ml-2 text-gray-600">No payments found</span>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Transaction</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Student</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Course</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Revenue Split</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {payments.map((payment) => (
+                  <tr key={payment.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{payment.id}</div>
+                        <div className="text-sm text-gray-700">{payment.paymentGateway}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{payment.studentName}</div>
+                        <div className="text-sm text-gray-700">{payment.studentEmail}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{payment.courseName}</div>
+                        <div className="text-sm text-gray-700">by {payment.instructorName}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">${payment.amount?.toFixed(2)}</div>
+                      <div className="text-sm text-gray-700">{payment.paymentMethod}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm">
+                        <div className="text-green-600 font-medium">Admin: ${payment.adminRevenue?.toFixed(2)}</div>
+                        <div className="text-blue-600">Instructor: ${payment.instructorAmount?.toFixed(2)}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(payment.status)}`}>
+                        {payment.status}
+                      </span>
+                      {payment.status === 'failed' && payment.failureReason && (
+                        <div className="text-xs text-red-600 mt-1">{payment.failureReason}</div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
+        
+        {/* Pagination */}
+        {!loading && !error && pagination.totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Showing {((pagination.currentPage - 1) * 20) + 1} to {Math.min(pagination.currentPage * 20, pagination.totalPayments)} of {pagination.totalPayments} payments
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
+                  disabled={!pagination.hasPrev}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-md">
+                  {pagination.currentPage} of {pagination.totalPages}
+                </span>
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+                  disabled={!pagination.hasNext}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 // app/admin/dashboard/page.jsx
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Users,
   BookOpen,
@@ -18,103 +18,89 @@ import Link from "next/link";
 
 const AdminDashboardPage = () => {
   const [timeRange, setTimeRange] = useState("7days");
-
-  const dashboardData = {
+  const [dashboardData, setDashboardData] = useState({
     stats: {
-      totalUsers: 15420,
-      totalInstructors: 342,
-      totalCourses: 1250,
-      totalRevenue: 245890,
-      activeUsers: 8920,
-      pendingApprovals: 23,
+      totalUsers: 0,
+      totalInstructors: 0,
+      totalCourses: 0,
+      totalRevenue: 0,
+      activeUsers: 0,
+      pendingApprovals: 0,
     },
-    recentActivity: [
-      {
-        id: 1,
-        type: "user",
-        message: "25 new users registered today",
-        time: "1 hour ago",
-        icon: Users,
-        color: "text-blue-600 bg-blue-100",
-      },
-      {
-        id: 2,
-        type: "instructor",
-        message: "3 new instructor applications pending",
-        time: "2 hours ago",
-        icon: UserCheck,
-        color: "text-orange-600 bg-orange-100",
-      },
-      {
-        id: 3,
-        type: "course",
-        message: "5 new courses published",
-        time: "4 hours ago",
-        icon: BookOpen,
-        color: "text-green-600 bg-green-100",
-      },
-      {
-        id: 4,
-        type: "revenue",
-        message: "Daily revenue target achieved",
-        time: "6 hours ago",
-        icon: DollarSign,
-        color: "text-purple-600 bg-purple-100",
-      },
-    ],
-    topCourses: [
-      {
-        id: 1,
-        title: "React Masterclass 2024",
-        instructor: "John Smith",
-        students: 1247,
-        revenue: 18450,
-        status: "active",
-      },
-      {
-        id: 2,
-        title: "JavaScript Fundamentals",
-        instructor: "Sarah Johnson",
-        students: 892,
-        revenue: 12340,
-        status: "active",
-      },
-      {
-        id: 3,
-        title: "Node.js Complete Guide",
-        instructor: "Mike Chen",
-        students: 654,
-        revenue: 9870,
-        status: "active",
-      },
-    ],
-    recentUsers: [
-      {
-        id: 1,
-        name: "Alex Thompson",
-        email: "alex@example.com",
-        type: "Student",
-        joinDate: "2024-01-15",
-        status: "active",
-      },
-      {
-        id: 2,
-        name: "Emma Wilson",
-        email: "emma@example.com",
-        type: "Instructor",
-        joinDate: "2024-01-14",
-        status: "pending",
-      },
-      {
-        id: 3,
-        name: "David Rodriguez",
-        email: "david@example.com",
-        type: "Student",
-        joinDate: "2024-01-13",
-        status: "active",
-      },
-    ],
+    recentActivity: [],
+    topCourses: [],
+    recentUsers: [],
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const iconMap = {
+    Users,
+    UserCheck,
+    BookOpen,
+    DollarSign,
+    TrendingUp,
+    Activity,
+    AlertTriangle
   };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/admin/dashboard');
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
+      const data = await response.json();
+      
+      const processedData = {
+        ...data,
+        recentActivity: data.recentActivity.map(activity => ({
+          ...activity,
+          icon: iconMap[activity.icon] || Activity
+        }))
+      };
+      
+      setDashboardData(processedData);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setError('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="w-full p-3 sm:p-4 lg:p-6 flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full p-3 sm:p-4 lg:p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+          <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+          <p className="text-red-700">{error}</p>
+          <button 
+            onClick={fetchDashboardData}
+            className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full p-3 sm:p-4 lg:p-6">
@@ -198,7 +184,32 @@ const AdminDashboardPage = () => {
         {/* Right Sidebar */}
         <div className="space-y-6">
           {/* Recent Activity */}
-          
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100">
+            <div className="p-4 sm:p-6 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center space-x-2">
+                <Activity className="w-5 h-5 text-green-600" />
+                <span>Recent Activity</span>
+              </h2>
+            </div>
+            <div className="p-4 sm:p-6">
+              <div className="space-y-4">
+                {dashboardData.recentActivity.map((activity) => {
+                  const IconComponent = activity.icon;
+                  return (
+                    <div key={activity.id} className="flex items-start space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${activity.color}`}>
+                        <IconComponent className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                        <p className="text-xs text-gray-600">{activity.time}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
           {/* Recent Users */}
           <div className="bg-white rounded-xl shadow-lg border border-gray-100">

@@ -1,6 +1,6 @@
 // app/admin/courses/page.jsx
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BookOpen,
   Search,
@@ -9,6 +9,7 @@ import {
   Star,
   Save,
   X,
+  Trash2,
 } from "lucide-react";
 
 const AdminCoursesPage = () => {
@@ -17,82 +18,63 @@ const AdminCoursesPage = () => {
   const [editingCourse, setEditingCourse] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({});
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [courses, setCourses] = useState([
-    {
-      id: 1,
-      title: "React Masterclass 2024",
-      instructor: "John Smith",
-      category: "Web Development",
-      students: 1247,
-      rating: 4.8,
-      reviews: 156,
-      price: 60,
-      revenue: 18450,
-      createdDate: "2024-01-15",
-      lastUpdated: "2024-01-20",
-      thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=300&h=200&fit=crop",
-    },
-    {
-      id: 2,
-      title: "JavaScript Fundamentals",
-      instructor: "Sarah Johnson",
-      category: "Web Development",
-      students: 0,
-      rating: 0,
-      reviews: 0,
-      price: 45,
-      revenue: 0,
-      createdDate: "2024-01-22",
-      lastUpdated: "2024-01-22",
-      thumbnail: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=300&h=200&fit=crop",
-    },
-    {
-      id: 3,
-      title: "Node.js Complete Guide",
-      instructor: "Mike Chen",
-      category: "Backend Development",
-      students: 654,
-      rating: 4.6,
-      reviews: 89,
-      price: 75,
-      revenue: 9870,
-      createdDate: "2024-01-10",
-      lastUpdated: "2024-01-18",
-      thumbnail: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=300&h=200&fit=crop",
-    },
-    {
-      id: 4,
-      title: "Python for Data Science",
-      instructor: "Emma Wilson",
-      category: "Data Science",
-      students: 0,
-      rating: 0,
-      reviews: 0,
-      price: 90,
-      revenue: 0,
-      createdDate: "2024-01-25",
-      lastUpdated: "2024-01-25",
-      thumbnail: "https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=300&h=200&fit=crop",
-    },
-  ]);
+  // Fetch courses from API
+  const fetchCourses = async () => {
+    try {
+      setLoading(true);
+
+      const queryParams = new URLSearchParams();
+      if (searchTerm) queryParams.append('search', searchTerm);
+      if (filterCategory !== 'all') queryParams.append('category', filterCategory);
+
+      const response = await fetch(`/api/admin/courses?${queryParams}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch courses');
+      }
+
+      const data = await response.json();
+      setCourses(data.courses || []);
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchCourses();
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, filterCategory]);
 
   const categories = [
-    "Web Development",
-    "Backend Development",
-    "Data Science",
-    "Mobile Development",
-    "UI/UX Design",
-    "DevOps",
+    "programming",
+    "design",
+    "business",
+    "marketing",
+    "photography",
+    "music",
+    "other",
   ];
 
-  const filteredCourses = courses.filter((course) => {
-    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         course.instructor.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === "all" || course.category === filterCategory;
-    
-    return matchesSearch && matchesCategory;
-  });
+  const filteredCourses = courses; // Filtering is now handled by the API
 
   const renderStars = (rating) => {
     if (rating === 0) return <span className="text-gray-500">No rating</span>;
@@ -120,10 +102,14 @@ const AdminCoursesPage = () => {
     setEditingCourse(course.id);
     setEditFormData({
       title: course.title,
-      instructor: course.instructor,
       category: course.category,
       price: course.price,
+      originalPrice: course.originalPrice,
       thumbnail: course.thumbnail,
+      isPublished: course.isPublished,
+      isActive: course.isActive,
+      level: course.level,
+      description: course.description,
     });
     setShowEditModal(true);
   };
@@ -134,21 +120,69 @@ const AdminCoursesPage = () => {
     setShowEditModal(false);
   };
 
-  const handleSaveEdit = () => {
-    setCourses(prevCourses => 
-      prevCourses.map(course => 
-        course.id === editingCourse 
-          ? { 
-              ...course, 
-              ...editFormData,
-              lastUpdated: new Date().toISOString().split('T')[0]
-            }
-          : course
-      )
-    );
-    setEditingCourse(null);
-    setEditFormData({});
-    setShowEditModal(false);
+  const handleSaveEdit = async () => {
+    try {
+      const response = await fetch('/api/admin/courses', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          courseId: editingCourse,
+          ...editFormData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update course');
+      }
+
+      const data = await response.json();
+      
+      // Update the course in the local state
+      setCourses(prevCourses => 
+        prevCourses.map(course => 
+          course.id === editingCourse ? data.course : course
+        )
+      );
+      
+      setEditingCourse(null);
+      setEditFormData({});
+      setShowEditModal(false);
+      alert('Course updated successfully!');
+    } catch (error) {
+      console.error('Error updating course:', error);
+      alert('Failed to update course: ' + error.message);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId) => {
+    if (!confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/courses?courseId=${courseId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete course');
+      }
+
+      // Remove the course from local state
+      setCourses(prevCourses => prevCourses.filter(course => course.id !== courseId));
+      alert('Course deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      alert('Failed to delete course: ' + error.message);
+    }
   };
 
   const handleFormChange = (field, value) => {
@@ -213,9 +247,34 @@ const AdminCoursesPage = () => {
 
         {/* Courses Grid */}
         <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredCourses.map((course) => (
-              <div key={course.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-200 flex flex-col h-full">
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <div className="text-red-600 mb-4">
+                <X className="w-12 h-12 mx-auto mb-2" />
+                <p className="text-lg font-semibold">Error loading courses</p>
+                <p className="text-sm">{error}</p>
+              </div>
+              <button 
+                onClick={fetchCourses}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : filteredCourses.length === 0 ? (
+            <div className="text-center py-12">
+              <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg font-semibold text-gray-600">No courses found</p>
+              <p className="text-sm text-gray-500">Try adjusting your search or filter criteria</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredCourses.map((course) => (
+                <div key={course.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-200 flex flex-col h-full">
                 <div className="relative">
                   <img
                     src={course.thumbnail}
@@ -230,11 +289,30 @@ const AdminCoursesPage = () => {
                       {course.title}
                     </h3>
                     <p className="text-sm text-gray-700 mb-2">by {course.instructor}</p>
-                    <p className="text-sm text-gray-600 mb-3">{course.category}</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-600 capitalize">{course.category}</span>
+                      <div className="flex space-x-1">
+                        {course.isPublished && (
+                          <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Published</span>
+                        )}
+                        {course.isActive && (
+                          <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Active</span>
+                        )}
+                      </div>
+                    </div>
                     
-                    <p className="text-sm text-gray-700 mb-3">
-                      <span className="font-medium">Price:</span> ${course.price}
-                    </p>
+                    <div className="text-sm text-gray-700 mb-3">
+                      <div className="flex justify-between">
+                        <span><span className="font-medium">Price:</span> ${course.price}</span>
+                        {course.originalPrice && course.originalPrice > course.price && (
+                          <span className="text-gray-500 line-through">${course.originalPrice}</span>
+                        )}
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span><span className="font-medium">Students:</span> {course.students}</span>
+                        <span><span className="font-medium">Revenue:</span> ${course.revenue}</span>
+                      </div>
+                    </div>
                     
                     <div className="min-h-[2rem] mb-3">
                       {course.rating > 0 ? (
@@ -247,18 +325,27 @@ const AdminCoursesPage = () => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-center pt-3 border-t border-gray-200 mt-auto">
+                  <div className="flex items-center justify-center space-x-4 pt-3 border-t border-gray-200 mt-auto">
                     <button 
                       onClick={() => handleEditCourse(course)}
-                      className="text-gray-600 hover:text-gray-900"
+                      className="text-blue-600 hover:text-blue-800 transition-colors"
+                      title="Edit course"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
+                    <button 
+                      onClick={() => handleDeleteCourse(course.id)}
+                      className="text-red-600 hover:text-red-800 transition-colors"
+                      title="Delete course"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -294,14 +381,14 @@ const AdminCoursesPage = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-800 mb-2">
-                  Instructor
+                  Description
                 </label>
-                <input
-                  type="text"
-                  value={editFormData.instructor}
-                  onChange={(e) => handleFormChange('instructor', e.target.value)}
+                <textarea
+                  value={editFormData.description || ''}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800"
-                  placeholder="Enter instructor name"
+                  placeholder="Enter course description"
+                  rows={3}
                 />
               </div>
               
@@ -322,18 +409,50 @@ const AdminCoursesPage = () => {
                 </select>
               </div>
               
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 mb-2">
+                    Price ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={editFormData.price || 0}
+                    onChange={(e) => handleFormChange('price', parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800"
+                    placeholder="Enter course price"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 mb-2">
+                    Original Price ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={editFormData.originalPrice || 0}
+                    onChange={(e) => handleFormChange('originalPrice', parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800"
+                    placeholder="Enter original price"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-800 mb-2">
-                  Price ($)
+                  Level
                 </label>
-                <input
-                  type="number"
-                  value={editFormData.price}
-                  onChange={(e) => handleFormChange('price', parseInt(e.target.value) || 0)}
+                <select
+                  value={editFormData.level || 'beginner'}
+                  onChange={(e) => handleFormChange('level', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800"
-                  placeholder="Enter course price"
-                  min="0"
-                />
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
               </div>
               
               <div>
@@ -342,11 +461,40 @@ const AdminCoursesPage = () => {
                 </label>
                 <input
                   type="url"
-                  value={editFormData.thumbnail}
+                  value={editFormData.thumbnail || ''}
                   onChange={(e) => handleFormChange('thumbnail', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800"
                   placeholder="Enter thumbnail image URL"
                 />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 mb-2">
+                    Published Status
+                  </label>
+                  <select
+                    value={editFormData.isPublished ? 'true' : 'false'}
+                    onChange={(e) => handleFormChange('isPublished', e.target.value === 'true')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800"
+                  >
+                    <option value="true">Published</option>
+                    <option value="false">Draft</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 mb-2">
+                    Active Status
+                  </label>
+                  <select
+                    value={editFormData.isActive ? 'true' : 'false'}
+                    onChange={(e) => handleFormChange('isActive', e.target.value === 'true')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800"
+                  >
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
               </div>
             </div>
             

@@ -1,6 +1,6 @@
 // app/admin/instructors/page.jsx
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   UserCheck,
   Search,
@@ -9,6 +9,7 @@ import {
   Edit,
   X,
   Star,
+  Trash2,
 } from "lucide-react";
 
 const AdminInstructorsPage = () => {
@@ -16,74 +17,53 @@ const AdminInstructorsPage = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newInstructor, setNewInstructor] = useState({
+    firstName: '',
+    lastName: '',
+    username: '',
+    email: '',
+    phone: '',
+    password: '',
+    specialization: '',
+    bio: ''
+  });
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+  const [instructors, setInstructors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [instructors, setInstructors] = useState([
-    {
-      id: 1,
-      name: "John Smith",
-      email: "john.smith@example.com",
-      status: "approved",
-      joinDate: "2024-01-15",
-      courses: 5,
-      students: 1247,
-      rating: 4.8,
-      revenue: 18450,
-      specialization: "Web Development",
-      lastActive: "2 hours ago",
-      phone: "+1 (555) 123-4567",
-      bio: "Experienced web developer with 10+ years in the industry.",
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      email: "sarah.johnson@example.com",
-      status: "pending",
-      joinDate: "2024-01-20",
-      courses: 0,
-      students: 0,
-      rating: 0,
-      revenue: 0,
-      specialization: "Data Science",
-      lastActive: "1 day ago",
-      phone: "+1 (555) 234-5678",
-      bio: "Data scientist specializing in machine learning and analytics.",
-    },
-    {
-      id: 3,
-      name: "Mike Chen",
-      email: "mike.chen@example.com",
-      status: "approved",
-      joinDate: "2024-01-10",
-      courses: 3,
-      students: 892,
-      rating: 4.6,
-      revenue: 12340,
-      specialization: "Mobile Development",
-      lastActive: "5 hours ago",
-      phone: "+1 (555) 345-6789",
-      bio: "Mobile app developer with expertise in React Native and Flutter.",
-    },
-    {
-      id: 4,
-      name: "Emma Wilson",
-      email: "emma.wilson@example.com",
-      status: "rejected",
-      joinDate: "2024-01-18",
-      courses: 0,
-      students: 0,
-      rating: 0,
-      revenue: 0,
-      specialization: "UI/UX Design",
-      lastActive: "3 days ago",
-      phone: "+1 (555) 456-7890",
-      bio: "UI/UX designer with a passion for creating intuitive user experiences.",
-    },
-  ]);
+  useEffect(() => {
+    fetchInstructors();
+  }, []);
+
+  const fetchInstructors = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('/api/admin/instructors');
+      
+      if (response.ok) {
+        const data = await response.json();
+        setInstructors(data.instructors || []);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to fetch instructors');
+      }
+    } catch (error) {
+      console.error('Error fetching instructors:', error);
+      setError('An error occurred while fetching instructors');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredInstructors = instructors.filter((instructor) => {
-    const matchesSearch = instructor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const fullName = `${instructor.firstName || ''} ${instructor.lastName || ''}`.trim();
+    const matchesSearch = fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          instructor.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || instructor.status === filterStatus;
+    const instructorStatus = instructor.status === 'active' ? 'approved' : 'pending';
+    const matchesStatus = filterStatus === "all" || instructorStatus === filterStatus;
     
     return matchesSearch && matchesStatus;
   });
@@ -99,6 +79,17 @@ const AdminInstructorsPage = () => {
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: '', type: '' });
+    }, 3000);
+  };
+
+  const handleAddInstructor = () => {
+    setShowAddModal(true);
   };
 
   const renderStars = (rating) => {
@@ -124,18 +115,133 @@ const AdminInstructorsPage = () => {
   };
 
   const handleEditInstructor = (instructor) => {
-    setEditingInstructor({ ...instructor });
+    setEditingInstructor({ 
+      ...instructor,
+      specialization: instructor.expertise && instructor.expertise.length > 0 ? instructor.expertise[0] : instructor.specialization || '',
+      isActive: instructor.status === 'active'
+    });
     setShowEditModal(true);
   };
 
-  const handleSaveInstructor = () => {
-    setInstructors(prevInstructors =>
-      prevInstructors.map(instructor =>
-        instructor.id === editingInstructor.id ? editingInstructor : instructor
-      )
-    );
-    setShowEditModal(false);
-    setEditingInstructor(null);
+  const handleSaveInstructor = async () => {
+    try {
+      const response = await fetch('/api/admin/instructors', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          instructorId: editingInstructor._id || editingInstructor.id,
+          firstName: editingInstructor.firstName,
+          lastName: editingInstructor.lastName,
+          email: editingInstructor.email,
+          phone: editingInstructor.phone,
+          bio: editingInstructor.bio,
+          expertise: editingInstructor.specialization ? [editingInstructor.specialization] : editingInstructor.expertise || [],
+          isActive: editingInstructor.isActive
+        }),
+      });
+
+      if (response.ok) {
+        await fetchInstructors();
+        setShowEditModal(false);
+        setEditingInstructor(null);
+        showToast('Instructor updated successfully!');
+      } else {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to update instructor', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating instructor:', error);
+      showToast('An error occurred while updating instructor', 'error');
+    }
+  };
+
+  const handleDeleteInstructor = async (instructorId) => {
+    if (!window.confirm('Are you sure you want to delete this instructor? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/instructors?id=${instructorId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        await fetchInstructors();
+        showToast('Instructor deleted successfully!');
+      } else {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to delete instructor', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting instructor:', error);
+      showToast('An error occurred while deleting instructor', 'error');
+    }
+  };
+
+  const handleSaveNewInstructor = async () => {
+    try {
+      const response = await fetch('/api/admin/instructors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: newInstructor.firstName,
+          lastName: newInstructor.lastName,
+          username: newInstructor.username,
+          email: newInstructor.email,
+          phone: newInstructor.phone,
+          password: newInstructor.password,
+          expertise: newInstructor.specialization ? [newInstructor.specialization] : [],
+          bio: newInstructor.bio
+        }),
+      });
+
+      if (response.ok) {
+        await fetchInstructors();
+        setShowAddModal(false);
+        setNewInstructor({
+          firstName: '',
+          lastName: '',
+          username: '',
+          email: '',
+          phone: '',
+          password: '',
+          specialization: '',
+          bio: ''
+        });
+        showToast('Instructor created successfully!');
+      } else {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to create instructor', 'error');
+      }
+    } catch (error) {
+      console.error('Error creating instructor:', error);
+      showToast('An error occurred while creating instructor', 'error');
+    }
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setNewInstructor({
+      firstName: '',
+      lastName: '',
+      username: '',
+      email: '',
+      phone: '',
+      password: '',
+      specialization: '',
+      bio: ''
+    });
+  };
+
+  const handleNewInstructorInputChange = (field, value) => {
+    setNewInstructor(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const handleCloseModal = () => {
@@ -167,10 +273,13 @@ const AdminInstructorsPage = () => {
               </p>
             </div>
             
-            <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
-              <Plus className="w-4 h-4" />
-              <span>Add Instructor</span>
-            </button>
+            <button 
+            onClick={handleAddInstructor}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Instructor</span>
+          </button>
           </div>
         </div>
 
@@ -203,56 +312,90 @@ const AdminInstructorsPage = () => {
 
         {/* Instructors Table */}
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Instructor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Performance</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Rating</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Revenue</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredInstructors.map((instructor) => (
-                <tr key={instructor.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{instructor.name}</div>
-                      <div className="text-sm text-gray-600">{instructor.email}</div>
-                      <div className="text-xs text-gray-500">{instructor.specialization}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(instructor.status)}`}>
-                      {instructor.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                    <div>{instructor.courses} courses</div>
-                    <div>{instructor.students} students</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {renderStars(instructor.rating)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                    ${instructor.revenue.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => handleEditInstructor(instructor)}
-                      className="flex items-center space-x-1 px-3 py-1 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors"
-                      title="Edit instructor"
-                    >
-                      <Edit className="w-4 h-4" />
-                      <span>Edit</span>
-                    </button>
-                  </td>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+              <span className="ml-2 text-gray-600">Loading instructors...</span>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="text-red-500 text-center">
+                <p className="text-lg font-medium">Error loading instructors</p>
+                <p className="text-sm mt-1">{error}</p>
+                <button
+                  onClick={fetchInstructors}
+                  className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : filteredInstructors.length === 0 ? (
+            <div className="flex justify-center items-center py-12">
+              <p className="text-gray-500">No instructors found</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Instructor</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Specialization</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Phone</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredInstructors.map((instructor) => {
+                  const fullName = `${instructor.firstName || ''} ${instructor.lastName || ''}`.trim();
+                  const instructorStatus = instructor.status === 'active' ? 'approved' : 'pending';
+                  
+                  return (
+                      <tr key={instructor._id || instructor.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{fullName}</div>
+                          <div className="text-sm text-gray-600">{instructor.email}</div>
+                          <div className="text-xs text-gray-500">{instructor.username}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(instructorStatus)}`}>
+                          {instructorStatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                        {instructor.specialization || 'Not specified'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                        {instructor.phone || 'Not provided'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleEditInstructor(instructor)}
+                            className="flex items-center space-x-1 px-3 py-1 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Edit instructor"
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteInstructor(instructor._id || instructor.id)}
+                            className="flex items-center space-x-1 px-3 py-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete instructor"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -278,25 +421,52 @@ const AdminInstructorsPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name
+                    First Name
                   </label>
                   <input
                     type="text"
-                    value={editingInstructor.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    value={editingInstructor.firstName || ''}
+                    onChange={(e) => handleInputChange('firstName', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editingInstructor.lastName || ''}
+                    onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email Address
                   </label>
                   <input
                     type="email"
-                    value={editingInstructor.email}
+                    value={editingInstructor.email || ''}
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={editingInstructor.username || ''}
+                    onChange={(e) => handleInputChange('username', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                    disabled
                   />
                 </div>
               </div>
@@ -308,7 +478,7 @@ const AdminInstructorsPage = () => {
                   </label>
                   <input
                     type="tel"
-                    value={editingInstructor.phone}
+                    value={editingInstructor.phone || ''}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
                   />
@@ -319,92 +489,24 @@ const AdminInstructorsPage = () => {
                     Status
                   </label>
                   <select
-                    value={editingInstructor.status}
-                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    value={editingInstructor.isActive ? 'active' : 'inactive'}
+                    onChange={(e) => handleInputChange('isActive', e.target.value === 'active')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
                   >
-                    <option value="approved">Approved</option>
-                    <option value="pending">Pending</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
                   </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Specialization
-                  </label>
-                  <input
-                    type="text"
-                    value={editingInstructor.specialization}
-                    onChange={(e) => handleInputChange('specialization', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Join Date
-                  </label>
-                  <input
-                    type="date"
-                    value={editingInstructor.joinDate}
-                    onChange={(e) => handleInputChange('joinDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Courses
-                  </label>
-                  <input
-                    type="number"
-                    value={editingInstructor.courses}
-                    onChange={(e) => handleInputChange('courses', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Students
-                  </label>
-                  <input
-                    type="number"
-                    value={editingInstructor.students}
-                    onChange={(e) => handleInputChange('students', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rating
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="5"
-                    value={editingInstructor.rating}
-                    onChange={(e) => handleInputChange('rating', parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
-                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Revenue ($)
+                  Specialization
                 </label>
                 <input
-                  type="number"
-                  value={editingInstructor.revenue}
-                  onChange={(e) => handleInputChange('revenue', parseInt(e.target.value) || 0)}
+                  type="text"
+                  value={editingInstructor.specialization || ''}
+                  onChange={(e) => handleInputChange('specialization', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
                 />
               </div>
@@ -414,7 +516,7 @@ const AdminInstructorsPage = () => {
                   Bio
                 </label>
                 <textarea
-                  value={editingInstructor.bio}
+                  value={editingInstructor.bio || ''}
                   onChange={(e) => handleInputChange('bio', e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
@@ -439,6 +541,176 @@ const AdminInstructorsPage = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Add Instructor Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900">Add New Instructor</h3>
+                <button
+                  onClick={handleCloseAddModal}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newInstructor.firstName}
+                    onChange={(e) => handleNewInstructorInputChange('firstName', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newInstructor.lastName}
+                    onChange={(e) => handleNewInstructorInputChange('lastName', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Username *
+                  </label>
+                  <input
+                    type="text"
+                    value={newInstructor.username}
+                    onChange={(e) => handleNewInstructorInputChange('username', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    value={newInstructor.email}
+                    onChange={(e) => handleNewInstructorInputChange('email', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={newInstructor.phone}
+                    onChange={(e) => handleNewInstructorInputChange('phone', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    value={newInstructor.password}
+                    onChange={(e) => handleNewInstructorInputChange('password', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Specialization
+                </label>
+                <input
+                  type="text"
+                  value={newInstructor.specialization}
+                  onChange={(e) => handleNewInstructorInputChange('specialization', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                  placeholder="e.g., Mathematics, Computer Science, Physics"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Bio
+                </label>
+                <textarea
+                  value={newInstructor.bio}
+                  onChange={(e) => handleNewInstructorInputChange('bio', e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                  placeholder="Brief description about the instructor..."
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={handleCloseAddModal}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveNewInstructor}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Create Instructor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center p-4 rounded-lg shadow-lg ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            {toast.type === 'success' ? (
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            ) : (
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            )}
+          </svg>
+          <span>{toast.message}</span>
+          <button
+            onClick={() => setToast({ show: false, message: '', type: '' })}
+            className="ml-4 text-white hover:text-gray-200"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>
