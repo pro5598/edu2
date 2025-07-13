@@ -2,8 +2,12 @@
 import { useState } from 'react';
 import { Eye, EyeOff, ArrowRight, BookOpen, User, Mail, Lock, Check, GraduationCap, UserCheck } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function EduVerseRegistration() {
+  const { login } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
@@ -15,6 +19,9 @@ export default function EduVerseRegistration() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -24,11 +31,63 @@ export default function EduVerseRegistration() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Student registration attempt:', formData);
-    // Handle student registration logic here
-  };
+    setIsLoading(true);
+    setError('');
+    setSuccess('');
+    
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+    
+    if (!formData.agreeToTerms) {
+      setError('You must agree to the Terms of Service and Privacy Policy');
+      setIsLoading(false);
+      return;
+    }
+    
+    const [firstName, ...lastNameParts] = formData.fullName.trim().split(' ');
+    const lastName = lastNameParts.join(' ') || firstName;
+    
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          firstName,
+          lastName,
+          role: 'student'
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSuccess(data.message);
+        if (data.user && data.user.isActive) {
+          await login(data.user);
+          setTimeout(() => {
+            router.push('/student/dashboard');
+          }, 2000);
+        }
+      } else {
+        setError(data.error || 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError('Network error. Please try again.');
+    } finally {
+       setIsLoading(false);
+     }
+   };
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#c3a4f5' }}>
@@ -75,9 +134,23 @@ export default function EduVerseRegistration() {
           <div className="bg-white rounded-2xl shadow-2xl p-8">
             {/* Form Header */}
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-2">Student Registration</h2>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-2">Create Student Account</h2>
               <div className="w-12 h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mx-auto"></div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {success && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-green-600 text-sm">{success}</p>
+              </div>
+            )}
 
             {/* Registration Form */}
             <div className="space-y-5">
@@ -232,10 +305,20 @@ export default function EduVerseRegistration() {
               {/* Register Button */}
               <button
                 onClick={handleSubmit}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                <span>Create Student Account</span>
-                <ArrowRight className="w-5 h-5" />
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Creating Account...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Create Student Account</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
             </div>
 

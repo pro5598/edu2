@@ -1,6 +1,6 @@
 // app/instructor/notifications/page.jsx
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Bell,
   BellOff,
@@ -18,134 +18,168 @@ import {
 } from "lucide-react";
 
 const InstructorNotificationsPage = () => {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: "enrollment",
-      title: "New Student Enrollment",
-      message: "Sarah Johnson enrolled in your React Masterclass 2024 course",
-      time: "2 hours ago",
-      read: false,
-      icon: User,
-      color: "text-blue-600 bg-blue-100",
-      course: "React Masterclass 2024",
-    },
-    {
-      id: 2,
-      type: "review",
-      title: "New Course Review",
-      message: "Mike Chen left a 5-star review for JavaScript Fundamentals",
-      time: "4 hours ago",
-      read: false,
-      icon: Star,
-      color: "text-yellow-600 bg-yellow-100",
-      course: "JavaScript Fundamentals",
-    },
-    {
-      id: 3,
-      type: "assignment",
-      title: "Assignment Submitted",
-      message: "Emma Wilson submitted the React Todo App assignment",
-      time: "6 hours ago",
-      read: true,
-      icon: Upload,
-      color: "text-green-600 bg-green-100",
-      course: "React Masterclass 2024",
-    },
-    {
-      id: 4,
-      type: "message",
-      title: "New Student Message",
-      message: "David Rodriguez sent you a message about the Node.js course",
-      time: "8 hours ago",
-      read: true,
-      icon: MessageSquare,
-      color: "text-purple-600 bg-purple-100",
-      course: "Node.js Complete Guide",
-    },
-    {
-      id: 5,
-      type: "completion",
-      title: "Course Completion",
-      message: "15 students completed your Angular Zero to Mastery course",
-      time: "1 day ago",
-      read: false,
-      icon: CheckCircle,
-      color: "text-green-600 bg-green-100",
-      course: "Angular Zero to Mastery",
-    },
-    {
-      id: 6,
-      type: "enrollment",
-      title: "New Student Enrollment",
-      message: "Alex Thompson enrolled in your PHP Beginner to Advanced course",
-      time: "1 day ago",
-      read: true,
-      icon: User,
-      color: "text-blue-600 bg-blue-100",
-      course: "PHP Beginner to Advanced",
-    },
-    {
-      id: 7,
-      type: "review",
-      title: "New Course Review",
-      message: "Lisa Anderson left a 4-star review for Node.js Complete Guide",
-      time: "2 days ago",
-      read: true,
-      icon: Star,
-      color: "text-yellow-600 bg-yellow-100",
-      course: "Node.js Complete Guide",
-    },
-    {
-      id: 8,
-      type: "system",
-      title: "Course Analytics Update",
-      message: "Your monthly course analytics report is now available",
-      time: "3 days ago",
-      read: true,
-      icon: BarChart3,
-      color: "text-indigo-600 bg-indigo-100",
-      course: null,
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [showUnreadOnly]);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const unreadParam = showUnreadOnly ? '&unreadOnly=true' : '';
+      const response = await fetch(`/api/instructor/notifications?page=1&limit=50${unreadParam}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const formattedNotifications = data.notifications.map(notification => ({
+          ...notification,
+          icon: getNotificationIcon(notification.type),
+          color: getNotificationColor(notification.type)
+        }));
+        setNotifications(formattedNotifications);
+        setUnreadCount(data.unreadCount);
+      } else {
+        console.error('Failed to fetch notifications');
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'enrollment': return User;
+      case 'review': return Star;
+      case 'submission': return Upload;
+      case 'assignment': return Upload;
+      case 'message': return MessageSquare;
+      case 'completion': return CheckCircle;
+      case 'system': return BarChart3;
+      default: return Bell;
+    }
+  };
+
+  const getNotificationColor = (type) => {
+    switch (type) {
+      case 'enrollment': return 'text-blue-600 bg-blue-100';
+      case 'review': return 'text-yellow-600 bg-yellow-100';
+      case 'submission': return 'text-green-600 bg-green-100';
+      case 'assignment': return 'text-green-600 bg-green-100';
+      case 'message': return 'text-purple-600 bg-purple-100';
+      case 'completion': return 'text-green-600 bg-green-100';
+      case 'system': return 'text-indigo-600 bg-indigo-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
 
   const filteredNotifications = notifications.filter((notification) => {
     const matchesReadStatus = !showUnreadOnly || !notification.read;
     return matchesReadStatus;
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const markAsRead = async (id) => {
+    try {
+      const response = await fetch('/api/instructor/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notificationId: id,
+          action: 'markAsRead'
+        })
+      });
 
-  const markAsRead = (id) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
+      if (response.ok) {
+        setNotifications(prev => 
+          prev.map(notification => 
+            notification.id === id 
+              ? { ...notification, read: true }
+              : notification
+          )
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
-  const markAsUnread = (id) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, read: false }
-          : notification
-      )
-    );
+  const markAsUnread = async (id) => {
+    try {
+      const response = await fetch('/api/instructor/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notificationId: id,
+          action: 'markAsUnread'
+        })
+      });
+
+      if (response.ok) {
+        setNotifications(prev => 
+          prev.map(notification => 
+            notification.id === id 
+              ? { ...notification, read: false }
+              : notification
+          )
+        );
+        setUnreadCount(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error marking notification as unread:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/instructor/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notificationId: null,
+          action: 'markAllAsRead'
+        })
+      });
+
+      if (response.ok) {
+        setNotifications(prev => 
+          prev.map(notification => ({ ...notification, read: true }))
+        );
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
 
-  const deleteNotification = (id) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  const deleteNotification = async (id) => {
+    try {
+      const response = await fetch(`/api/instructor/notifications?id=${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        const notification = notifications.find(n => n.id === id);
+        setNotifications(prev => prev.filter(notification => notification.id !== id));
+        if (notification && !notification.read) {
+          setUnreadCount(prev => Math.max(0, prev - 1));
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
   };
 
   const getTimeColor = (read) => {
@@ -202,7 +236,16 @@ const InstructorNotificationsPage = () => {
 
         {/* Notifications List */}
         <div className="divide-y divide-gray-200">
-          {filteredNotifications.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                <Bell className="w-8 h-8 text-gray-400 animate-pulse" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Loading notifications...
+              </h3>
+            </div>
+          ) : filteredNotifications.length > 0 ? (
             filteredNotifications.map((notification) => {
               const Icon = notification.icon;
               return (

@@ -109,12 +109,7 @@ export async function POST(request) {
       whereClause.role = role;
     }
 
-    const user = await User.findOne({
-      where: whereClause,
-      attributes: {
-        include: ['password']
-      }
-    });
+    const user = await User.findOne(whereClause).select('+password');
 
     if (!user) {
       recordFailedAttempt(identifier);

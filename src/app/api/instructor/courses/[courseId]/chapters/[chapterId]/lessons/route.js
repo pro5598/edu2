@@ -49,7 +49,35 @@ export async function POST(request, { params }) {
     const { courseId, chapterId } = await params;
     const instructorId = authResult.user._id;
     
-    const lessonData = await request.json();
+    let lessonData;
+    let videoFile = null;
+    let videoPath = null;
+    
+    const contentType = request.headers.get('content-type');
+    
+    if (contentType && contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      lessonData = JSON.parse(formData.get('lessonData'));
+      videoFile = formData.get('videoFile');
+      
+      if (videoFile && lessonData.videoType === 'upload') {
+        const path = await import('path');
+        const fs = await import('fs/promises');
+        
+        const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'videos');
+        await fs.mkdir(uploadsDir, { recursive: true });
+        
+        const fileName = `${Date.now()}-${videoFile.name}`;
+        const filePath = path.join(uploadsDir, fileName);
+        
+        const buffer = Buffer.from(await videoFile.arrayBuffer());
+        await fs.writeFile(filePath, buffer);
+        
+        videoPath = `/uploads/videos/${fileName}`;
+      }
+    } else {
+      lessonData = await request.json();
+    }
 
     const course = await Course.findOne({ _id: courseId, instructor: instructorId });
     if (!course) {
@@ -68,6 +96,9 @@ export async function POST(request, { params }) {
       title: lessonData.title || '',
       description: lessonData.description || '',
       duration: lessonData.duration || 0,
+      videoUrl: lessonData.videoUrl || '',
+      videoType: lessonData.videoType || 'upload',
+      videoFile: videoPath,
       course: courseId,
       chapter: chapterId,
       order,

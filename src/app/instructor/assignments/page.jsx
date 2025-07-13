@@ -1,6 +1,6 @@
 // app/instructor/assignments/page.jsx
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -18,8 +18,10 @@ import {
   ArrowLeft,
   Star,
   MessageSquare,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import CreateAssignmentModal from '../../../components/CreateAssignmentModal';
 
 const InstructorAssignmentsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -31,138 +33,163 @@ const InstructorAssignmentsPage = () => {
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [gradeInput, setGradeInput] = useState("");
   const [feedbackInput, setFeedbackInput] = useState("");
+  
+  // API state
+  const [assignments, setAssignments] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Sample data with submission information
-  const assignments = [
-    {
-      id: 1,
-      title: "Build a React Todo App",
-      course: "React Masterclass 2024",
-      courseId: 1,
-      description: "Create a fully functional todo application using React hooks and local storage",
-      type: "project",
-      maxScore: 100,
-      dueDate: "2024-02-15",
-      createdAt: "2024-01-01",
-      totalStudents: 45,
-      submittedCount: 32,
-      gradedCount: 28,
-      submissions: [
-        {
-          id: 1,
-          studentName: "John Doe",
-          studentEmail: "john.doe@email.com",
-          submittedAt: "2024-02-14",
-          status: "graded",
-          score: 85,
-          submissionText: "I have created a React Todo app with all the required features including:\n\n1. Add new todos\n2. Mark todos as complete\n3. Delete todos\n4. Filter todos (All, Active, Completed)\n5. Local storage persistence\n6. Responsive design\n\nThe application uses React hooks (useState, useEffect) for state management and localStorage for data persistence. I've also implemented proper error handling and user feedback.\n\nKey features implemented:\n- Component-based architecture\n- Clean and intuitive UI\n- Proper state management\n- Data persistence\n- Mobile-friendly design",
-          files: [
-            { name: "todo-app.zip", size: "2.5 MB", type: "application/zip" },
-            { name: "readme.md", size: "1.2 KB", type: "text/markdown" },
-            { name: "demo-screenshots.pdf", size: "850 KB", type: "application/pdf" }
-          ],
-          feedback: "Great work! Clean code and good implementation of hooks. Your component structure is well organized and the UI is intuitive. The local storage implementation is perfect. Consider adding unit tests for better code quality.",
-          submissionHistory: [
-            { date: "2024-02-14", action: "Submitted", details: "Initial submission" },
-            { date: "2024-02-15", action: "Graded", details: "Score: 85/100" },
-            { date: "2024-02-15", action: "Feedback Added", details: "Instructor feedback provided" }
-          ]
-        },
-        {
-          id: 2,
-          studentName: "Jane Smith",
-          studentEmail: "jane.smith@email.com",
-          submittedAt: "2024-02-13",
-          status: "submitted",
-          score: null,
-          submissionText: "My React Todo application includes all requested functionality. I've built it using modern React patterns with hooks and functional components.\n\nFeatures implemented:\n- Add, edit, and delete todos\n- Mark todos as complete/incomplete\n- Filter functionality (All, Active, Completed)\n- Local storage for data persistence\n- Responsive design for mobile and desktop\n- Clean, modern UI with CSS modules\n\nI've also added some extra features like:\n- Todo categories/tags\n- Due date functionality\n- Search functionality\n- Dark mode toggle\n\nThe code is well-documented and follows React best practices. I've used TypeScript for better type safety and included a comprehensive README with setup instructions.",
-          files: [
-            { name: "react-todo.zip", size: "3.1 MB", type: "application/zip" },
-            { name: "project-documentation.pdf", size: "1.8 MB", type: "application/pdf" }
-          ],
-          feedback: null,
-          submissionHistory: [
-            { date: "2024-02-13", action: "Submitted", details: "Initial submission with extra features" }
-          ]
-        },
-        {
-          id: 3,
-          studentName: "Mike Johnson",
-          studentEmail: "mike.johnson@email.com",
-          submittedAt: "2024-02-15",
-          status: "submitted",
-          score: null,
-          submissionText: "Here is my completed Todo app with React hooks. I focused on creating a clean, functional application that meets all the requirements.\n\nImplemented features:\n- CRUD operations for todos\n- State management with useState and useReducer\n- Effect hooks for localStorage integration\n- Component composition and reusability\n- CSS-in-JS styling with styled-components\n\nI've also included:\n- Unit tests with Jest and React Testing Library\n- ESLint and Prettier configuration\n- GitHub Actions for CI/CD\n- Deployment to Netlify\n\nThe application is live at: https://mike-react-todo.netlify.app\n\nI've learned a lot about React hooks and modern development practices while building this project.",
-          files: [
-            { name: "todo-project.zip", size: "4.2 MB", type: "application/zip" },
-            { name: "demo-video.mp4", size: "15.3 MB", type: "video/mp4" },
-            { name: "test-coverage-report.html", size: "245 KB", type: "text/html" }
-          ],
-          feedback: null,
-          submissionHistory: [
-            { date: "2024-02-15", action: "Submitted", details: "Submission with live demo and tests" }
-          ]
-        }
-      ]
-    },
-    {
-      id: 2,
-      title: "JavaScript ES6 Quiz",
-      course: "JavaScript Fundamentals",
-      courseId: 2,
-      description: "Test your knowledge of ES6 features including arrow functions, destructuring, and modules",
-      type: "quiz",
-      maxScore: 50,
-      dueDate: "2024-02-20",
-      createdAt: "2024-01-05",
-      totalStudents: 67,
-      submittedCount: 45,
-      gradedCount: 45,
-      submissions: []
-    },
-    {
-      id: 3,
-      title: "Node.js API Development",
-      course: "Node.js Complete Guide",
-      courseId: 3,
-      description: "Build a RESTful API with authentication and database integration",
-      type: "project",
-      maxScore: 150,
-      dueDate: "2024-02-25",
-      createdAt: "2023-12-20",
-      totalStudents: 38,
-      submittedCount: 38,
-      gradedCount: 35,
-      submissions: []
-    },
-    {
-      id: 4,
-      title: "CSS Flexbox Layout",
-      course: "Web Design Fundamentals",
-      courseId: 4,
-      description: "Create responsive layouts using CSS Flexbox properties",
-      type: "assignment",
-      maxScore: 75,
-      dueDate: "2024-02-28",
-      createdAt: "2024-01-08",
-      totalStudents: 52,
-      submittedCount: 12,
-      gradedCount: 0,
-      submissions: []
-    },
-  ];
+  // API Functions - Using cookie-based authentication
 
-  const courses = [
-    { id: 1, name: "React Masterclass 2024" },
-    { id: 2, name: "JavaScript Fundamentals" },
-    { id: 3, name: "Node.js Complete Guide" },
-    { id: 4, name: "Web Design Fundamentals" },
-  ];
+  const fetchAssignments = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/instructor/assignments', {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch assignments');
+      }
+      
+      const data = await response.json();
+      setAssignments(data.assignments || []);
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+      setError('Failed to load assignments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch('/api/instructor/courses', {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch courses');
+      }
+      
+      const data = await response.json();
+      setCourses(data.courses || []);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+    }
+  };
+
+  const fetchSubmissions = async (assignmentId) => {
+    try {
+      setSubmissionsLoading(true);
+      const response = await fetch(`/api/instructor/assignments/${assignmentId}/submissions`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch submissions');
+      }
+      
+      const data = await response.json();
+      setSubmissions(data.submissions || []);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+      setError('Failed to load submissions');
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  };
+
+  const createAssignment = async (assignmentData, attachments) => {
+    try {
+      const formData = new FormData();
+      formData.append('assignmentData', JSON.stringify(assignmentData));
+      
+      if (attachments && attachments.length > 0) {
+        attachments.forEach(file => {
+          formData.append('attachments', file);
+        });
+      }
+      
+      const response = await fetch('/api/instructor/assignments', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create assignment');
+      }
+      
+      const data = await response.json();
+      setAssignments(prev => [data.assignment, ...prev]);
+      return data.assignment;
+    } catch (error) {
+      console.error('Error creating assignment:', error);
+      throw error;
+    }
+  };
+
+  const deleteAssignment = async (assignmentId) => {
+    try {
+      const response = await fetch(`/api/instructor/assignments/${assignmentId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete assignment');
+      }
+      
+      setAssignments(prev => prev.filter(assignment => assignment._id !== assignmentId));
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      throw error;
+    }
+  };
+
+  const gradeSubmission = async (assignmentId, submissionId, score, feedback) => {
+    try {
+      const response = await fetch(`/api/instructor/assignments/${assignmentId}/submissions/${submissionId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ score, feedback })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to grade submission');
+      }
+      
+      const data = await response.json();
+      
+      // Update submissions list
+      setSubmissions(prev => prev.map(sub => 
+        sub._id === submissionId ? data.submission : sub
+      ));
+      
+      return data.submission;
+    } catch (error) {
+      console.error('Error grading submission:', error);
+      throw error;
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    fetchAssignments();
+    fetchCourses();
+  }, []);
 
   const filteredAssignments = assignments.filter((assignment) => {
     const matchesSearch = assignment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         assignment.course.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCourse = filterCourse === "all" || assignment.courseId.toString() === filterCourse;
+                         (assignment.course?.title || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCourse = filterCourse === "all" || assignment.course?._id === filterCourse;
     
     return matchesSearch && matchesCourse;
   });
@@ -218,9 +245,10 @@ const InstructorAssignmentsPage = () => {
     return '📁';
   };
 
-  const openSubmissionsModal = (assignment) => {
+  const openSubmissionsModal = async (assignment) => {
     setSelectedAssignment(assignment);
     setShowSubmissionsModal(true);
+    await fetchSubmissions(assignment._id);
   };
 
   const closeSubmissionsModal = () => {
@@ -242,39 +270,45 @@ const InstructorAssignmentsPage = () => {
     setFeedbackInput("");
   };
 
-  const handleGradeSubmission = () => {
-    // Here you would typically make an API call to save the grade and feedback
-    console.log("Grading submission:", {
-      submissionId: selectedSubmission.id,
-      grade: gradeInput,
-      feedback: feedbackInput
-    });
-    
-    // Update the submission in the local state (in a real app, this would come from the API)
-    if (selectedAssignment && selectedSubmission) {
-      const updatedAssignments = assignments.map(assignment => {
-        if (assignment.id === selectedAssignment.id) {
-          return {
-            ...assignment,
-            submissions: assignment.submissions.map(submission => {
-              if (submission.id === selectedSubmission.id) {
-                return {
-                  ...submission,
-                  score: parseInt(gradeInput),
-                  feedback: feedbackInput,
-                  status: 'graded'
-                };
-              }
-              return submission;
-            })
-          };
-        }
-        return assignment;
-      });
+  const handleGradeSubmission = async () => {
+    try {
+      const updatedSubmission = await gradeSubmission(
+        selectedAssignment._id,
+        selectedSubmission._id,
+        parseInt(gradeInput),
+        feedbackInput
+      );
+      
+      // Update the selected submission
+      setSelectedSubmission(updatedSubmission);
+      
+      alert("Grade and feedback saved successfully!");
+      closeSubmissionDetail();
+    } catch (error) {
+      console.error('Failed to grade submission:', error);
+      alert('Failed to grade submission. Please try again.');
     }
-    
-    alert("Grade and feedback saved successfully!");
-    closeSubmissionDetail();
+  };
+
+  const handleDeleteAssignment = async (assignmentId) => {
+    if (window.confirm('Are you sure you want to delete this assignment? This action cannot be undone.')) {
+      try {
+        await deleteAssignment(assignmentId);
+      } catch (error) {
+        console.error('Failed to delete assignment:', error);
+        alert('Failed to delete assignment. Please try again.');
+      }
+    }
+  };
+
+  const handleCreateAssignment = async (assignmentData, attachments) => {
+    try {
+      await createAssignment(assignmentData, attachments);
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Failed to create assignment:', error);
+      alert('Failed to create assignment. Please try again.');
+    }
   };
 
   return (
@@ -327,8 +361,8 @@ const InstructorAssignmentsPage = () => {
             >
               <option value="all">All Courses</option>
               {courses.map((course) => (
-                <option key={course.id} value={course.id.toString()}>
-                  {course.name}
+                <option key={course._id} value={course._id.toString()}>
+                  {course.title}
                 </option>
               ))}
             </select>
@@ -337,11 +371,29 @@ const InstructorAssignmentsPage = () => {
 
         {/* Assignments List */}
         <div className="p-4 sm:p-6">
-          {filteredAssignments.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading assignments...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <div className="text-red-500 mb-4">
+                <FileText className="w-16 h-16 mx-auto mb-2" />
+                <p>{error}</p>
+              </div>
+              <button
+                onClick={fetchAssignments}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : filteredAssignments.length > 0 ? (
             <div className="space-y-4">
               {filteredAssignments.map((assignment) => (
                 <div
-                  key={assignment.id}
+                  key={assignment._id}
                   className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-all duration-200"
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
@@ -355,7 +407,7 @@ const InstructorAssignmentsPage = () => {
                           {assignment.title}
                         </h3>
                         <p className="text-sm text-blue-600 font-medium mb-2">
-                          {assignment.course}
+                          {assignment.course?.title || 'Unknown Course'}
                         </p>
                         <p className="text-sm text-gray-800 mb-3 line-clamp-2">
                           {assignment.description}
@@ -369,15 +421,15 @@ const InstructorAssignmentsPage = () => {
                           </div>
                           <div className="flex items-center space-x-1">
                             <Users className="w-4 h-4" />
-                            <span>{assignment.totalStudents} students</span>
+                            <span>{assignment.course?.enrollmentCount || 0} students</span>
                           </div>
                           <div className="flex items-center space-x-1">
                             <Upload className="w-4 h-4" />
-                            <span>{assignment.submittedCount} submitted</span>
+                            <span>{assignment.submissionCount || 0} submitted</span>
                           </div>
                           <div className="flex items-center space-x-1">
                             <CheckCircle className="w-4 h-4" />
-                            <span>{assignment.gradedCount} graded</span>
+                            <span>{assignment.gradedCount || 0} graded</span>
                           </div>
                         </div>
                       </div>
@@ -392,7 +444,10 @@ const InstructorAssignmentsPage = () => {
                         <Eye className="w-4 h-4" />
                         <span>View Submissions</span>
                       </button>
-                      <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <button 
+                        onClick={() => handleDeleteAssignment(assignment._id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -449,14 +504,19 @@ const InstructorAssignmentsPage = () => {
 
             {/* Submissions List */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              {selectedAssignment.submissions.length > 0 ? (
+              {submissionsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-500">Loading submissions...</p>
+                </div>
+              ) : submissions.length > 0 ? (
                 <div className="space-y-4">
-                  {selectedAssignment.submissions.map((submission) => (
-                    <div key={submission.id} className="border border-gray-200 rounded-lg p-4">
+                  {submissions.map((submission) => (
+                    <div key={submission._id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <h4 className="font-semibold text-gray-900">{submission.studentName}</h4>
-                          <p className="text-sm text-gray-600">{submission.studentEmail}</p>
+                          <h4 className="font-semibold text-gray-900">{submission.student?.name || 'Unknown Student'}</h4>
+                          <p className="text-sm text-gray-600">{submission.student?.email || 'No email'}</p>
                           <p className="text-xs text-gray-500 mt-1">
                             Submitted: {formatDate(submission.submittedAt)}
                           </p>
@@ -477,25 +537,25 @@ const InstructorAssignmentsPage = () => {
                       <div className="mb-3">
                         <h5 className="text-sm font-medium text-gray-900 mb-2">Submission Preview:</h5>
                         <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg line-clamp-3">
-                          {submission.submissionText}
+                          {submission.content || 'No text content'}
                         </p>
                       </div>
 
                       {/* Files Preview */}
-                      {submission.files.length > 0 && (
+                      {submission.attachments && submission.attachments.length > 0 && (
                         <div className="mb-3">
-                          <h5 className="text-sm font-medium text-gray-900 mb-2">Files ({submission.files.length}):</h5>
+                          <h5 className="text-sm font-medium text-gray-900 mb-2">Files ({submission.attachments.length}):</h5>
                           <div className="flex flex-wrap gap-2">
-                            {submission.files.slice(0, 3).map((file, index) => (
+                            {submission.attachments.slice(0, 3).map((file, index) => (
                               <div key={index} className="flex items-center space-x-2 bg-blue-50 px-3 py-1 rounded-lg">
-                                <span className="text-sm">{getFileIcon(file.type)}</span>
-                                <span className="text-sm text-blue-800">{file.name}</span>
-                                <span className="text-xs text-blue-600">({file.size})</span>
+                                <span className="text-sm">{getFileIcon(file.mimetype || file.type)}</span>
+                                <span className="text-sm text-blue-800">{file.originalname || file.name}</span>
+                                <span className="text-xs text-blue-600">({file.size ? `${Math.round(file.size/1024)}KB` : 'Unknown size'})</span>
                               </div>
                             ))}
-                            {submission.files.length > 3 && (
+                            {submission.attachments.length > 3 && (
                               <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-lg">
-                                <span className="text-sm text-gray-600">+{submission.files.length - 3} more</span>
+                                <span className="text-sm text-gray-600">+{submission.attachments.length - 3} more</span>
                               </div>
                             )}
                           </div>
@@ -562,7 +622,7 @@ const InstructorAssignmentsPage = () => {
                     <ArrowLeft className="w-5 h-5" />
                   </button>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">{selectedSubmission.studentName}'s Submission</h3>
+                    <h3 className="text-xl font-bold text-gray-900">{selectedSubmission.student?.name || 'Unknown Student'}'s Submission</h3>
                     <p className="text-sm text-gray-600">{selectedAssignment.title}</p>
                   </div>
                 </div>
@@ -588,8 +648,8 @@ const InstructorAssignmentsPage = () => {
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="font-semibold text-gray-900 mb-2">Student Information</h4>
                     <div className="space-y-1 text-sm">
-                      <p><span className="font-medium">Name:</span> {selectedSubmission.studentName}</p>
-                      <p><span className="font-medium">Email:</span> {selectedSubmission.studentEmail}</p>
+                      <p><span className="font-medium">Name:</span> {selectedSubmission.student?.name || 'Unknown Student'}</p>
+                      <p><span className="font-medium">Email:</span> {selectedSubmission.student?.email || 'No email'}</p>
                       <p><span className="font-medium">Submitted:</span> {formatDateTime(selectedSubmission.submittedAt)}</p>
                     </div>
                   </div>
@@ -599,23 +659,23 @@ const InstructorAssignmentsPage = () => {
                     <h4 className="font-semibold text-gray-900 mb-3">Submission Content</h4>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
-                        {selectedSubmission.submissionText}
+                        {selectedSubmission.content || 'No text content'}
                       </pre>
                     </div>
                   </div>
 
                   {/* Files */}
-                  {selectedSubmission.files.length > 0 && (
+                  {selectedSubmission.attachments && selectedSubmission.attachments.length > 0 && (
                     <div>
                       <h4 className="font-semibold text-gray-900 mb-3">Submitted Files</h4>
                       <div className="space-y-2">
-                        {selectedSubmission.files.map((file, index) => (
+                        {selectedSubmission.attachments.map((file, index) => (
                           <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
                             <div className="flex items-center space-x-3">
-                              <span className="text-2xl">{getFileIcon(file.type)}</span>
+                              <span className="text-2xl">{getFileIcon(file.mimetype || file.type)}</span>
                               <div>
-                                <p className="font-medium text-gray-900">{file.name}</p>
-                                <p className="text-sm text-gray-600">{file.size} • {file.type}</p>
+                                <p className="font-medium text-gray-900">{file.originalname || file.name}</p>
+                                <p className="text-sm text-gray-600">{file.size ? `${Math.round(file.size/1024)}KB` : 'Unknown size'} • {file.mimetype || file.type}</p>
                               </div>
                             </div>
                             <button className="flex items-center space-x-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
@@ -632,14 +692,20 @@ const InstructorAssignmentsPage = () => {
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-3">Submission History</h4>
                     <div className="space-y-2">
-                      {selectedSubmission.submissionHistory.map((entry, index) => (
-                        <div key={index} className="flex items-center space-x-3 text-sm">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="text-gray-600">{formatDateTime(entry.date)}</span>
-                          <span className="font-medium text-gray-900">{entry.action}</span>
-                          <span className="text-gray-600">{entry.details}</span>
+                      <div className="flex items-center space-x-3 text-sm">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span className="text-gray-600">{formatDateTime(selectedSubmission.submittedAt)}</span>
+                        <span className="font-medium text-gray-900">Submitted</span>
+                        <span className="text-gray-600">Assignment submitted by student</span>
+                      </div>
+                      {selectedSubmission.gradedAt && (
+                        <div className="flex items-center space-x-3 text-sm">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-gray-600">{formatDateTime(selectedSubmission.gradedAt)}</span>
+                          <span className="font-medium text-gray-900">Graded</span>
+                          <span className="text-gray-600">Score: {selectedSubmission.score}/{selectedAssignment.maxScore}</span>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </div>
@@ -685,7 +751,7 @@ const InstructorAssignmentsPage = () => {
                       disabled={!gradeInput}
                       className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {selectedSubmission.status === 'graded' ? 'Update Grade' : 'Submit Grade'}
+                      {selectedSubmission.score !== null && selectedSubmission.score !== undefined ? 'Update Grade' : 'Submit Grade'}
                     </button>
                   </div>
 
@@ -715,101 +781,11 @@ const InstructorAssignmentsPage = () => {
 
       {/* Create Assignment Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900">Create New Assignment</h3>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-800 mb-2">
-                  Assignment Title
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800 placeholder-gray-600"
-                  placeholder="Enter assignment title"
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-800 mb-2">
-                    Course
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800">
-                    <option value="">Select a course</option>
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-800 mb-2">
-                    Assignment Type
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800">
-                    <option value="assignment">Assignment</option>
-                    <option value="project">Project</option>
-                    <option value="quiz">Quiz</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-800 mb-2">
-                  Description
-                </label>
-                <textarea
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800 placeholder-gray-600"
-                  placeholder="Describe the assignment requirements..."
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-800 mb-2">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-800 mb-2">
-                    Max Score
-                  </label>
-                  <input
-                    type="number"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800 placeholder-gray-600"
-                    placeholder="100"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Create Assignment
-              </button>
-            </div>
-          </div>
-        </div>
+        <CreateAssignmentModal
+          courses={courses}
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreateAssignment}
+        />
       )}
     </div>
   );

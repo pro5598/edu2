@@ -17,21 +17,23 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import StudentPanelFooter from "./StudentPanelFooter";
 
 const StudentLayout = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const profileData = {
-    firstName: "Emily",
-    lastName: "Hannah",
-    username: "emily.hannah",
-    email: "emily.hannah@example.com",
-    phone: "+1-202-555-0174",
-    registrationDate: "February 25, 2025",
-    bio: "I'm the Front-End Developer for #Rainbow IT in Bangladesh, OR. I have serious passion for UI effects, animations and creating intuitive, dynamic user experiences.",
+    firstName: user?.firstName || "Emily",
+    lastName: user?.lastName || "Hannah",
+    username: user?.username || "emily.hannah",
+    email: user?.email || "emily.hannah@example.com",
+    phone: user?.phone || "+1-202-555-0174",
+    registrationDate: user?.registrationDate || "February 25, 2025",
+    bio: user?.bio || "I'm the Front-End Developer for #Rainbow IT in Bangladesh, OR. I have serious passion for UI effects, animations and creating intuitive, dynamic user experiences.",
   };
 
   const navigationItems = [
@@ -39,48 +41,75 @@ const StudentLayout = ({ children }) => {
       id: "dashboard",
       label: "Dashboard",
       icon: LayoutDashboard,
-      href: "/dashboard",
+      href: "/student/dashboard",
     },
-    { id: "profile", label: "My Profile", icon: User, href: "/profile" },
+    {
+      id: "profile",
+      label: "My Profile",
+      icon: User,
+      href: "/student/profile",
+    },
     {
       id: "browse-courses",
       label: "Browse Courses",
       icon: Search,
-      href: "/browse-courses",
+      href: "/student/browse-courses",
     },
     {
       id: "courses",
       label: "My Courses",
       icon: BookOpen,
-      href: "/courses",
+      href: "/student/courses",
     },
-    { id: "wishlist", label: "Wishlist", icon: Heart, href: "/wishlist" },
-    { id: "cart", label: "Cart", icon: ShoppingCart, href: "/cart" },
-    { id: "reviews", label: "Reviews", icon: Star, href: "/reviews" },
+    {
+      id: "wishlist",
+      label: "Wishlist",
+      icon: Heart,
+      href: "/student/wishlist",
+    },
+    {
+      id: "cart",
+      label: "Cart",
+      icon: ShoppingCart,
+      href: "/student/cart",
+    },
+    { id: "reviews", label: "Reviews", icon: Star, href: "/student/reviews" },
     {
       id: "order-history",
       label: "Order History",
       icon: Clock,
-      href: "/order-history",
+      href: "/student/order-history",
     },
     {
       id: "notifications",
       label: "Notifications",
       icon: Bell,
-      href: "/notifications",
+      href: "/student/notifications",
     },
   ];
 
   const userActions = [
-    { id: "settings", label: "Settings", icon: Settings, href: "/settings" },
+    {
+      id: "settings",
+      label: "Settings",
+      icon: Settings,
+      href: "/student/settings",
+    },
     { id: "logout", label: "Logout", icon: LogOut, action: "logout" },
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    sessionStorage.clear();
-    router.push('/');
-    closeSidebar();
+  const handleLogout = async () => {
+    try {
+      await logout();
+      closeSidebar();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Fallback: clear local storage and redirect
+      localStorage.removeItem('authToken');
+      sessionStorage.clear();
+      router.push('/');
+      closeSidebar();
+    }
   };
 
   const isActive = (href) => {

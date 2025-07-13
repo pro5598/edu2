@@ -1,5 +1,6 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   BookOpen,
   Clock,
@@ -9,57 +10,99 @@ import {
   Target,
   ChevronRight,
 } from "lucide-react";
-import Link from "next/link";
 
 const StudentDashboardPage = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Sample data - replace with real data from your API
-  const dashboardData = {
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/student/dashboard', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+
+        const data = await response.json();
+        setDashboardData(data);
+      } catch (err) {
+        console.error('Dashboard fetch error:', err);
+        setError(err.message);
+        // Fallback to sample data if API fails
+        setDashboardData({
+          stats: {
+            totalCourses: 0,
+            activeCourses: 0,
+            completedCourses: 0,
+            totalHours: 0,
+            streak: 0,
+            averageRating: 0,
+            rank: 0,
+          },
+          recentCourses: [],
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-gray-600 mb-4">Failed to load dashboard data</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Use the fetched data or show empty state
+  const data = dashboardData || {
     stats: {
-      totalCourses: 12,
-      activeCourses: 3,
-      completedCourses: 9,
-      totalHours: 156,
-      streak: 12,
-      averageRating: 4.8,
-      rank: 85,
+      totalCourses: 0,
+      activeCourses: 0,
+      completedCourses: 0,
+      totalHours: 0,
+      streak: 0,
+      averageRating: 0,
+      rank: 0,
     },
-    recentCourses: [
-      {
-        id: 1,
-        title: "React Advanced Patterns",
-        progress: 75,
-        lastAccessed: "2 hours ago",
-        nextLesson: "Custom Hooks Deep Dive",
-        instructor: "John Doe",
-        thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=300&h=200&fit=crop",
-        timeLeft: "2h 30m",
-        difficulty: "Advanced",
-      },
-      {
-        id: 2,
-        title: "JavaScript Fundamentals",
-        progress: 100,
-        lastAccessed: "1 day ago",
-        nextLesson: "Course Completed",
-        instructor: "Jane Smith",
-        thumbnail: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=300&h=200&fit=crop",
-        timeLeft: "Completed",
-        difficulty: "Beginner",
-      },
-      {
-        id: 3,
-        title: "UI/UX Design Principles",
-        progress: 45,
-        lastAccessed: "3 days ago",
-        nextLesson: "Color Theory Basics",
-        instructor: "Mike Johnson",
-        thumbnail: "https://images.unsplash.com/photo-1561070791-2526d30994b5?w=300&h=200&fit=crop",
-        timeLeft: "4h 15m",
-        difficulty: "Intermediate",
-      },
-    ],
+    recentCourses: [],
   };
 
   return (
@@ -72,7 +115,7 @@ const StudentDashboardPage = () => {
               <BookOpen className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-bold text-gray-900">{dashboardData.stats.totalCourses}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">{data.stats.totalCourses}</div>
               <div className="text-xs sm:text-sm text-gray-500">Total Courses</div>
             </div>
           </div>
@@ -84,7 +127,7 @@ const StudentDashboardPage = () => {
               <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-bold text-gray-900">{dashboardData.stats.completedCourses}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">{data.stats.completedCourses}</div>
               <div className="text-xs sm:text-sm text-gray-500">Completed</div>
             </div>
           </div>
@@ -96,7 +139,7 @@ const StudentDashboardPage = () => {
               <Clock className="w-6 h-6 text-purple-600" />
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-bold text-gray-900">{dashboardData.stats.totalHours}h</div>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">{data.stats.totalHours}h</div>
               <div className="text-xs sm:text-sm text-gray-500">Study Time</div>
             </div>
           </div>
@@ -120,38 +163,51 @@ const StudentDashboardPage = () => {
           </div>
           <div className="p-4 sm:p-6">
             <div className="space-y-4">
-              {dashboardData.recentCourses.map((course) => (
-                <div key={course.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <img
-                    src={course.thumbnail}
-                    alt={course.title}
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate">{course.title}</h3>
-                    <p className="text-sm text-gray-600 mb-2">Next: {course.nextLesson}</p>
-                    <div className="flex items-center">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="text-gray-600">Progress</span>
-                          <span className="font-medium">{course.progress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${course.progress}%` }}
-                          />
+              {data.recentCourses.length > 0 ? (
+                data.recentCourses.map((course) => (
+                  <div key={course.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <img
+                      src={course.thumbnail}
+                      alt={course.title}
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 truncate">{course.title}</h3>
+                      <p className="text-sm text-gray-600 mb-2">Next: {course.nextLesson}</p>
+                      <div className="flex items-center">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-gray-600">Progress</span>
+                            <span className="font-medium">{course.progress}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${course.progress}%` }}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
+                    <Link href={`/courses/${course.id}/lessons`}>
+                      <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                        Continue
+                      </button>
+                    </Link>
                   </div>
-                  <Link href={`/courses/${course.id}/lessons`}>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                      Continue
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No courses yet</h3>
+                  <p className="text-gray-500 mb-4">Start your learning journey by enrolling in a course</p>
+                  <Link href="/browse-courses">
+                    <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                      Browse Courses
                     </button>
                   </Link>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

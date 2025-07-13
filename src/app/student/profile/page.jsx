@@ -1,19 +1,50 @@
 "use client";
-import React, { useState } from "react";
-import { Save, Edit3, User, Mail, Phone, Calendar, Briefcase, FileText, Camera } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Save, Edit3, User, Mail, Phone, Calendar, Briefcase, FileText, Camera, RefreshCw, AlertCircle } from "lucide-react";
+import toast from "react-hot-toast";
 
 const StudentProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
-  const [profileData, setProfileData] = useState({
-    firstName: "Emily",
-    lastName: "Hannah",
-    username: "emily.hannah",
-    email: "emily.hannah@example.com",
-    phone: "+1-202-555-0174",
-    occupation: "Application Developer",
-    registrationDate: "February 25, 2025",
-    bio: "I'm the Front-End Developer for #Rainbow IT in Bangladesh, OR. I have serious passion for UI effects, animations and creating intuitive, dynamic user experiences.",
-  });
+  const [profileData, setProfileData] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [profileResponse, statsResponse] = await Promise.all([
+        fetch('/api/student/profile'),
+        fetch('/api/student/stats')
+      ]);
+
+      if (!profileResponse.ok) {
+        throw new Error('Failed to fetch profile data');
+      }
+      if (!statsResponse.ok) {
+        throw new Error('Failed to fetch stats data');
+      }
+
+      const profileData = await profileResponse.json();
+      const statsData = await statsResponse.json();
+      
+      setProfileData(profileData);
+      setStats(statsData);
+    } catch (err) {
+      console.error('Error fetching profile data:', err);
+      setError(err.message);
+      toast.error('Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
 
   const handleProfileUpdate = (field, value) => {
     setProfileData((prev) => ({
@@ -22,9 +53,86 @@ const StudentProfilePage = () => {
     }));
   };
 
-  const handleSaveProfile = () => {
-    setIsEditing(false);
-    console.log("Profile saved:", profileData);
+  const handleSaveProfile = async () => {
+    try {
+      setSaving(true);
+      
+      const response = await fetch('/api/student/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update profile');
+      }
+
+      const updatedProfile = await response.json();
+      setProfileData(updatedProfile);
+      setIsEditing(false);
+      toast.success('Profile updated successfully!');
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      toast.error(err.message || 'Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="w-full p-3 sm:p-4 lg:p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="p-8 flex items-center justify-center">
+            <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+            <span className="ml-3 text-lg text-gray-600">Loading profile...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full p-3 sm:p-4 lg:p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="p-8">
+            <div className="flex items-center justify-center text-red-600 mb-4">
+              <AlertCircle className="h-8 w-8" />
+              <span className="ml-3 text-lg">{error}</span>
+            </div>
+            <div className="text-center">
+              <button
+                onClick={fetchProfileData}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profileData) {
+    return null;
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'N/A';
+    }
   };
 
   const profileFields = [
@@ -33,8 +141,8 @@ const StudentProfilePage = () => {
       label: "Registration Date",
       icon: Calendar,
       type: "text",
-      value: profileData.registrationDate + " 8:01 am",
-      editValue: profileData.registrationDate,
+      value: formatDate(profileData.createdAt || profileData.registrationDate),
+      editValue: formatDate(profileData.createdAt || profileData.registrationDate),
       readonly: true,
     },
     {
@@ -42,40 +150,40 @@ const StudentProfilePage = () => {
       label: "First Name",
       icon: User,
       type: "text",
-      value: profileData.firstName,
-      editValue: profileData.firstName,
+      value: profileData.firstName || '',
+      editValue: profileData.firstName || '',
     },
     {
       key: "lastName",
       label: "Last Name",
       icon: User,
       type: "text",
-      value: profileData.lastName,
-      editValue: profileData.lastName,
+      value: profileData.lastName || '',
+      editValue: profileData.lastName || '',
     },
     {
       key: "username",
       label: "Username",
       icon: User,
       type: "text",
-      value: profileData.username,
-      editValue: profileData.username,
+      value: profileData.username || '',
+      editValue: profileData.username || '',
     },
     {
       key: "email",
       label: "Email",
       icon: Mail,
       type: "email",
-      value: profileData.email,
-      editValue: profileData.email,
+      value: profileData.email || '',
+      editValue: profileData.email || '',
     },
     {
       key: "phone",
       label: "Phone Number",
       icon: Phone,
       type: "tel",
-      value: profileData.phone,
-      editValue: profileData.phone,
+      value: profileData.phone || '',
+      editValue: profileData.phone || '',
     },
   ];
 
@@ -101,16 +209,22 @@ const StudentProfilePage = () => {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base"
+                    disabled={saving}
+                    className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveProfile}
-                    className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 text-sm sm:text-base"
+                    disabled={saving}
+                    className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 text-sm sm:text-base disabled:opacity-50"
                   >
-                    <Save className="w-4 h-4" />
-                    <span>Save</span>
+                    {saving ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span>{saving ? 'Saving...' : 'Save'}</span>
                   </button>
                 </div>
               ) : (
@@ -197,14 +311,14 @@ const StudentProfilePage = () => {
               {isEditing ? (
                 <input
                   type="text"
-                  value={profileData.occupation}
+                  value={profileData.occupation || ''}
                   onChange={(e) => handleProfileUpdate('occupation', e.target.value)}
                   className="w-full p-3 sm:p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base text-slate-900 placeholder:text-slate-500 bg-white font-medium"
                   placeholder="Enter your occupation"
                 />
               ) : (
                 <div className="p-3 sm:p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-slate-800 text-sm sm:text-base">{profileData.occupation}</p>
+                  <p className="text-slate-800 text-sm sm:text-base">{profileData.occupation || ''}</p>
                 </div>
               )}
             </div>
@@ -219,7 +333,7 @@ const StudentProfilePage = () => {
               </label>
               {isEditing ? (
                 <textarea
-                  value={profileData.bio}
+                  value={profileData.bio || ''}
                   onChange={(e) => handleProfileUpdate('bio', e.target.value)}
                   rows="4"
                   className="w-full p-3 sm:p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base resize-none text-slate-900 placeholder:text-slate-500 bg-white font-medium"
@@ -228,7 +342,7 @@ const StudentProfilePage = () => {
               ) : (
                 <div className="p-3 sm:p-4 bg-slate-50 rounded-lg border border-slate-200">
                   <p className="text-slate-700 leading-relaxed text-sm sm:text-base">
-                    {profileData.bio}
+                    {profileData.bio || ''}
                   </p>
                 </div>
               )}
@@ -265,27 +379,27 @@ const StudentProfilePage = () => {
           </div>
         </div>
 
-        {/* Profile Stats - Optional Enhancement */}
-        <div className="px-4 sm:px-6 py-4 sm:py-6 bg-slate-50 border-t border-slate-200">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-lg sm:text-xl font-bold text-blue-600">5</div>
-              <div className="text-xs sm:text-sm text-slate-600">Courses</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg sm:text-xl font-bold text-green-600">4</div>
-              <div className="text-xs sm:text-sm text-slate-600">Certificates</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg sm:text-xl font-bold text-purple-600">120h</div>
-              <div className="text-xs sm:text-sm text-slate-600">Study Time</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg sm:text-xl font-bold text-orange-600">4.8</div>
-              <div className="text-xs sm:text-sm text-slate-600">Avg Rating</div>
-            </div>
-          </div>
-        </div>
+        {/* Profile Stats */}
+         <div className="px-4 sm:px-6 py-4 sm:py-6 bg-slate-50 border-t border-slate-200">
+           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+             <div className="text-center">
+               <div className="text-lg sm:text-xl font-bold text-blue-600">{stats?.totalCourses || 0}</div>
+               <div className="text-xs sm:text-sm text-slate-600">Courses</div>
+             </div>
+             <div className="text-center">
+               <div className="text-lg sm:text-xl font-bold text-green-600">{stats?.certificates || 0}</div>
+               <div className="text-xs sm:text-sm text-slate-600">Certificates</div>
+             </div>
+             <div className="text-center">
+               <div className="text-lg sm:text-xl font-bold text-purple-600">{stats?.totalHours || 0}h</div>
+               <div className="text-xs sm:text-sm text-slate-600">Study Time</div>
+             </div>
+             <div className="text-center">
+               <div className="text-lg sm:text-xl font-bold text-orange-600">{stats?.averageRating || '0.0'}</div>
+               <div className="text-xs sm:text-sm text-slate-600">Avg Rating</div>
+             </div>
+           </div>
+         </div>
       </div>
     </div>
   );

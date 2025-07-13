@@ -1,86 +1,73 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Star, Users, Heart, ShoppingCart, Trash2, Filter, Search, BookOpen, Clock, DollarSign } from "lucide-react";
 
 const StudentWishlistPage = () => {
-  const wishlistData = [
-    {
-      id: 1,
-      title: "React Front To Back",
-      instructor: "Brad Traversy",
-      rating: 5,
-      reviews: 100,
-      lessons: 50,
-      students: 100,
-      price: 60,
-      originalPrice: 84.99,
-      discount: true,
-      dateAdded: "2024-12-01",
-      category: "Web Development",
-      level: "Intermediate",
-      duration: "12 hours",
-      image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
-    },
-    {
-      id: 2,
-      title: "PHP Beginner Advanced",
-      instructor: "John Smith",
-      rating: 4.6,
-      reviews: 21,
-      lessons: 50,
-      students: 100,
-      price: 80,
-      originalPrice: 100,
-      discount: true,
-      dateAdded: "2024-11-15",
-      category: "Backend Development",
-      level: "Beginner",
-      duration: "15 hours",
-      image: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=400&h=300&fit=crop",
-    },
-    {
-      id: 3,
-      title: "Angular Zero to Mastery",
-      instructor: "Sarah Johnson",
-      rating: 4.9,
-      reviews: 102,
-      lessons: 50,
-      students: 100,
-      price: 40,
-      originalPrice: 90,
-      discount: true,
-      dateAdded: "2024-10-20",
-      category: "Frontend Development",
-      level: "Advanced",
-      duration: "20 hours",
-      image: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400&h=300&fit=crop",
-    },
-    {
-      id: 4,
-      title: "Python Machine Learning",
-      instructor: "Dr. Emily Chen",
-      rating: 4.8,
-      reviews: 85,
-      lessons: 65,
-      students: 150,
-      price: 120,
-      originalPrice: 150,
-      discount: true,
-      dateAdded: "2024-09-10",
-      category: "Data Science",
-      level: "Advanced",
-      duration: "25 hours",
-      image: "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=400&h=300&fit=crop",
-    },
-  ];
+  const [wishlistData, setWishlistData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const handleRemoveFromWishlist = (courseId) => {
-    console.log("Remove from wishlist:", courseId);
-  };
+  useEffect(() => {
+    fetchWishlist();
+  }, []);
 
-  const handleAddToCart = (courseId) => {
-    console.log("Add to cart:", courseId);
-  };
+  const fetchWishlist = async () => {
+     try {
+       setLoading(true);
+       const response = await fetch('/api/student/wishlist', {
+         credentials: 'include'
+       });
+       if (!response.ok) {
+         throw new Error('Failed to fetch wishlist');
+       }
+       const data = await response.json();
+       setWishlistData(data.wishlistItems || []);
+     } catch (err) {
+       setError(err.message);
+     } finally {
+       setLoading(false);
+     }
+   };
+
+  const handleRemoveFromWishlist = async (courseId) => {
+     try {
+       const response = await fetch('/api/student/wishlist', {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+         },
+         credentials: 'include',
+         body: JSON.stringify({ courseId, action: 'remove' }),
+       });
+       if (!response.ok) {
+         throw new Error('Failed to remove from wishlist');
+       }
+       setWishlistData(prev => prev.filter(item => item.course._id !== courseId));
+     } catch (err) {
+       console.error('Error removing from wishlist:', err);
+     }
+   };
+
+  const handleAddToCart = async (courseId) => {
+     try {
+       const response = await fetch('/api/cart', {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+         },
+         credentials: 'include',
+         body: JSON.stringify({ courseId }),
+       });
+       if (!response.ok) {
+         throw new Error('Failed to add to cart');
+       }
+       console.log('Added to cart successfully');
+       // Optionally remove from wishlist after adding to cart
+       // await handleRemoveFromWishlist(courseId);
+     } catch (err) {
+       console.error('Error adding to cart:', err);
+     }
+   };
 
   return (
     <div className="w-full p-3 sm:p-4 lg:p-6">
@@ -103,25 +90,39 @@ const StudentWishlistPage = () => {
 
         {/* Wishlist Grid */}
         <div className="p-4 sm:p-6">
-          {wishlistData.length > 0 ? (
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-600 mb-4">{error}</p>
+              <button 
+                onClick={fetchWishlist}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : wishlistData.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {wishlistData.map((course) => (
+              {wishlistData.map((item) => (
                 <div
-                  key={course.id}
+                  key={item.id}
                   className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 group border border-slate-100 max-w-sm mx-auto w-full"
                 >
                   {/* Course Image - Fixed Height */}
                   <div className="relative h-48">
                     <img
-                      src={course.image}
-                      alt={course.title}
+                      src={item.course.thumbnail || '/api/placeholder/300/200'}
+                      alt={item.course.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     
                     {/* Remove Button Only */}
                     <div className="absolute top-3 right-3">
                       <button
-                        onClick={() => handleRemoveFromWishlist(course.id)}
+                        onClick={() => handleRemoveFromWishlist(item.course._id)}
                         className="p-2 bg-white/90 text-gray-600 hover:bg-white hover:text-red-500 rounded-full transition-colors"
                         title="Remove from wishlist"
                       >
@@ -137,9 +138,9 @@ const StudentWishlistPage = () => {
                       <div className="flex items-center">
                         {[...Array(5)].map((_, i) => (
                           <Star
-                            key={i}
+                            key={`${item.id}-star-${i}`}
                             className={`w-4 h-4 ${
-                              i < Math.floor(course.rating)
+                              i < Math.floor(item.course.rating || 0)
                                 ? "text-yellow-400 fill-current"
                                 : "text-gray-300"
                             }`}
@@ -147,28 +148,28 @@ const StudentWishlistPage = () => {
                         ))}
                       </div>
                       <span className="text-sm text-gray-600 ml-2">
-                        {course.rating} ({course.reviews})
+                        {item.course.rating || 0} ({item.course.reviewCount || 0})
                       </span>
                     </div>
 
                     {/* Title - Fixed Height */}
                     <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-2 h-14 group-hover:text-blue-600 transition-colors">
-                      {course.title}
+                      {item.course.title}
                     </h3>
 
                     {/* Instructor */}
                     <p className="text-sm text-gray-600 mb-4">
-                      by {course.instructor}
+                      by {item.course.instructor}
                     </p>
 
                     {/* Course Details - Simplified */}
                     <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
                       <div className="flex items-center space-x-1">
                         <Clock className="w-4 h-4" />
-                        <span>{course.duration}</span>
+                        <span>{item.course.duration || 'N/A'}</span>
                       </div>
                       <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                        {course.level}
+                        {item.course.level || 'All Levels'}
                       </span>
                     </div>
 
@@ -176,11 +177,11 @@ const StudentWishlistPage = () => {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-2">
                         <span className="text-xl font-bold text-gray-800">
-                          ${course.price}
+                          ${item.course.price || 0}
                         </span>
-                        {course.discount && (
+                        {item.course.originalPrice && item.course.originalPrice > item.course.price && (
                           <span className="text-sm line-through text-gray-500">
-                            ${course.originalPrice}
+                            ${item.course.originalPrice}
                           </span>
                         )}
                       </div>
@@ -188,7 +189,7 @@ const StudentWishlistPage = () => {
 
                     {/* Action Button - Single Button */}
                     <button
-                      onClick={() => handleAddToCart(course.id)}
+                      onClick={() => handleAddToCart(item.course._id)}
                       className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
                     >
                       <ShoppingCart className="w-4 h-4" />
@@ -223,11 +224,15 @@ const StudentWishlistPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
               <div className="text-sm text-slate-600">
                 Total value: <span className="font-semibold text-slate-800">
-                  ${wishlistData.reduce((sum, course) => sum + course.originalPrice, 0).toFixed(2)}
+                  ${wishlistData.reduce((sum, item) => sum + (item.course.originalPrice || item.course.price || 0), 0).toFixed(2)}
                 </span>
                 {" "}
                 <span className="text-green-600">
-                  (Save ${wishlistData.reduce((sum, course) => sum + (course.originalPrice - course.price), 0).toFixed(2)})
+                  (Save ${wishlistData.reduce((sum, item) => {
+                    const original = item.course.originalPrice || item.course.price || 0;
+                    const current = item.course.price || 0;
+                    return sum + Math.max(0, original - current);
+                  }, 0).toFixed(2)})
                 </span>
               </div>
               <button className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2">

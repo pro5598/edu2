@@ -1,51 +1,52 @@
 import { NextResponse } from 'next/server';
-import { Cart, Course, User } from '../../../models';
-import { authenticateToken, requireStudent } from '../../../middleware/auth';
+import connectDB from '../../../lib/database';
+import { authenticateToken } from '../../../middleware/auth';
+import Cart from '../../../models/Cart';
+import Course from '../../../models/Course';
+import User from '../../../models/User';
 
 export async function GET(request) {
   try {
-    const authResult = await new Promise((resolve) => {
-      authenticateToken(request, NextResponse, (result) => {
-        resolve(result);
-      });
-    });
-
-    if (authResult instanceof NextResponse) {
-      return authResult;
+    await connectDB();
+    
+    const user = await authenticateToken(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const cartItems = await Cart.findAll({
-      where: { studentId: request.user.id },
-      include: [
-        {
-          model: Course,
-          as: 'course',
-          include: [
-            {
-              model: User,
-              as: 'instructor',
-              attributes: ['firstName', 'lastName']
-            }
-          ]
+    const cart = await Cart.findOne({ user: user.id })
+      .populate({
+        path: 'items.course',
+        populate: {
+          path: 'instructor',
+          select: 'firstName lastName'
         }
-      ],
-      order: [['addedAt', 'DESC']]
-    });
+      });
 
-    const cartData = cartItems.map(item => ({
-      id: item.id,
+    if (!cart) {
+      return NextResponse.json({
+        cartItems: [],
+        totalAmount: 0,
+        itemCount: 0
+      });
+    }
+
+    const cartData = cart.items.map(item => ({
+      id: item._id,
       course: {
-        ...item.course.toJSON(),
+        ...item.course.toObject(),
         instructor: `${item.course.instructor.firstName} ${item.course.instructor.lastName}`
       },
-      addedAt: item.addedAt
+      addedAt: item.addedAt,
+      price: item.price
     }));
-
-    const totalAmount = cartData.reduce((sum, item) => sum + parseFloat(item.course.price), 0);
 
     return NextResponse.json({
       cartItems: cartData,
-      totalAmount,
+      totalAmount: cart.totalAmount,
       itemCount: cartData.length
     });
   } catch (error) {
@@ -59,14 +60,14 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const authResult = await new Promise((resolve) => {
-      authenticateToken(request, NextResponse, (result) => {
-        resolve(result);
-      });
-    });
-
-    if (authResult instanceof NextResponse) {
-      return authResult;
+    await connectDB();
+    
+    const user = await authenticateToken(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const { courseId } = await request.json();
@@ -78,7 +79,7 @@ export async function POST(request) {
       );
     }
 
-    const course = await Course.findByPk(courseId);
+    const course = await Course.findById(courseId);
     if (!course) {
       return NextResponse.json(
         { error: 'Course not found' },
@@ -86,28 +87,37 @@ export async function POST(request) {
       );
     }
 
-    const existingCartItem = await Cart.findOne({
-      where: {
-        studentId: request.user.id,
-        courseId
-      }
-    });
+    let cart = await Cart.findOne({ user: user.id });
+    
+    if (!cart) {
+      cart = new Cart({
+        user: user.id,
+        items: []
+      });
+    }
 
-    if (existingCartItem) {
+    const existingItemIndex = cart.items.findIndex(
+      item => item.course.toString() === courseId
+    );
+
+    if (existingItemIndex !== -1) {
       return NextResponse.json(
         { error: 'Course already in cart' },
         { status: 409 }
       );
     }
 
-    const cartItem = await Cart.create({
-      studentId: request.user.id,
-      courseId
+    cart.items.push({
+      course: courseId,
+      addedAt: new Date(),
+      price: course.price,
+      originalPrice: course.originalPrice || course.price
     });
+    
+    await cart.save();
 
     return NextResponse.json({
-      message: 'Course added to cart',
-      cartItem
+      message: 'Course added to cart'
     }, { status: 201 });
   } catch (error) {
     console.error('Add to cart error:', error);

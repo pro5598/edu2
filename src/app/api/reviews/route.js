@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Review, Course, User, Enrollment } from '../../../models';
+import { Review, Course, User, Enrollment, Notification } from '../../../models';
 import { authenticateToken } from '../../../middleware/auth';
 
 export async function GET(request) {
@@ -118,6 +118,24 @@ export async function POST(request) {
       averageRating: Math.round(averageRating * 10) / 10,
       totalReviews: allReviews.length
     });
+
+    // Get student information for notifications
+    const student = await User.findByPk(request.user.id);
+    
+    // Create review notification for instructor
+    try {
+      await Notification.createReviewNotification({
+        studentName: `${student.firstName} ${student.lastName}`,
+        courseName: course.title,
+        rating: rating,
+        courseId: course.id,
+        studentId: student.id,
+        instructorId: course.instructorId
+      });
+    } catch (notificationError) {
+      console.error('Failed to create review notification:', notificationError);
+      // Don't fail the review if notification creation fails
+    }
 
     return NextResponse.json({
       message: 'Review submitted successfully',

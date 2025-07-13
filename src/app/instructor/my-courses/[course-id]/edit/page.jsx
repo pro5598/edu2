@@ -476,20 +476,70 @@ const EditCoursePage = () => {
         formData.append('thumbnail', courseData.thumbnailFile);
       }
       
-      const response = await fetch(`/api/instructor/courses/${params['course-id']}`, {
+      // Save basic course data
+      const courseResponse = await fetch(`/api/instructor/courses/${params['course-id']}`, {
         method: 'PUT',
         body: formData
       });
       
-      if (response.ok) {
-        alert('Course updated successfully!');
-      } else {
-        const error = await response.json();
-        alert(`Error: ${error.message || 'Failed to update course'}`);
+      if (!courseResponse.ok) {
+        const error = await courseResponse.json();
+        throw new Error(error.message || 'Failed to update course');
       }
+      
+      // Save chapters and lessons
+      for (const chapter of courseData.chapters) {
+        if (chapter._id) {
+          // Update existing chapter
+          const chapterResponse = await fetch(`/api/instructor/courses/${params['course-id']}/chapters/${chapter._id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: chapter.title,
+              description: chapter.description
+            })
+          });
+          
+          if (!chapterResponse.ok) {
+            console.error('Failed to update chapter:', chapter.title);
+          }
+          
+          // Update lessons in this chapter
+          for (const lesson of chapter.lessons) {
+            if (lesson._id) {
+              const lessonFormData = new FormData();
+              lessonFormData.append('lessonData', JSON.stringify({
+                title: lesson.title,
+                description: lesson.description,
+                duration: lesson.duration,
+                videoUrl: lesson.videoUrl,
+                videoType: lesson.videoType
+              }));
+              
+              // Add video file if it exists
+              if (lesson.videoFile && lesson.videoFile instanceof File) {
+                lessonFormData.append('videoFile', lesson.videoFile);
+              }
+              
+              const lessonResponse = await fetch(`/api/instructor/courses/${params['course-id']}/chapters/${chapter._id}/lessons/${lesson._id}`, {
+                method: 'PUT',
+                body: lessonFormData
+              });
+              
+              if (!lessonResponse.ok) {
+                console.error('Failed to update lesson:', lesson.title);
+              }
+            }
+          }
+        }
+      }
+      
+      alert('Course updated successfully!');
     } catch (error) {
       console.error('Error saving course:', error);
-      alert('Error saving course');
+      alert(`Error saving course: ${error.message}`);
     } finally {
       setIsSaving(false);
     }

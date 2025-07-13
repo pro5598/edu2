@@ -409,13 +409,101 @@ const InstructorMyCoursesPage = () => {
       }
 
       const result = await response.json();
+      const courseId = result.course._id;
+      
+      // Create chapters and lessons
+      for (const chapter of newCourse.chapters) {
+        const chapterResponse = await fetch(`/api/instructor/courses/${courseId}/chapters`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: chapter.title,
+            description: chapter.description || ''
+          })
+        });
+        
+        if (chapterResponse.ok) {
+          const chapterResult = await chapterResponse.json();
+          const chapterId = chapterResult.chapter._id;
+          
+          // Create lessons for this chapter
+          for (const lesson of chapter.lessons) {
+            if (lesson.videoFile && lesson.videoFile instanceof File) {
+              // Use FormData for lessons with video files
+              const lessonFormData = new FormData();
+              lessonFormData.append('lessonData', JSON.stringify({
+                title: lesson.title,
+                description: lesson.description || '',
+                duration: lesson.duration || '00:00',
+                videoUrl: lesson.videoUrl || '',
+                videoType: lesson.videoType || 'upload'
+              }));
+              lessonFormData.append('videoFile', lesson.videoFile);
+              
+              const lessonResponse = await fetch(`/api/instructor/courses/${courseId}/chapters/${chapterId}/lessons`, {
+                method: 'POST',
+                body: lessonFormData
+              });
+              
+              if (!lessonResponse.ok) {
+                console.error('Failed to create lesson with video:', lesson.title);
+              }
+            } else {
+              // Use JSON for lessons without video files
+              const lessonResponse = await fetch(`/api/instructor/courses/${courseId}/chapters/${chapterId}/lessons`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  title: lesson.title,
+                  description: lesson.description || '',
+                  duration: lesson.duration || '00:00',
+                  videoUrl: lesson.videoUrl || '',
+                  videoType: lesson.videoType || 'upload'
+                })
+              });
+              
+              if (!lessonResponse.ok) {
+                console.error('Failed to create lesson:', lesson.title);
+              }
+            }
+          }
+        } else {
+          console.error('Failed to create chapter:', chapter.title);
+        }
+      }
+      
+      // Create course notes
+      for (const note of newCourse.notes) {
+        if (note.file) {
+          const noteFormData = new FormData();
+          noteFormData.append('noteData', JSON.stringify({
+            title: note.title,
+            description: note.description,
+            order: note.order || 0
+          }));
+          noteFormData.append('file', note.file);
+          
+          const noteResponse = await fetch(`/api/instructor/courses/${courseId}/notes`, {
+            method: 'POST',
+            body: noteFormData
+          });
+          
+          if (!noteResponse.ok) {
+            console.error('Failed to create note:', note.title);
+          }
+        }
+      }
       
       // Add the new course to the local state
       setCourses((prev) => [...prev, result.course]);
 
       // Reset form and close
       handleCancelCreate();
-      alert("Course created successfully!");
+      alert("Course created successfully with all chapters, lessons, and notes!");
     } catch (error) {
       console.error('Error creating course:', error);
       alert(error.message || 'Failed to create course. Please try again.');

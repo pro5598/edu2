@@ -13,20 +13,22 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "../../contexts/AuthContext";
 
 const InstructorLayout = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const { logout, user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const profileData = {
-    firstName: "John",
-    lastName: "Smith",
-    username: "john.instructor",
-    email: "john.smith@example.com",
-    phone: "+1-555-123-4567",
-    title: "Senior Instructor",
-    bio: "Passionate educator with 10+ years of experience in web development and programming instruction.",
+    firstName: user?.firstName || "John",
+    lastName: user?.lastName || "Smith",
+    username: user?.username || "john.instructor",
+    email: user?.email || "john.smith@example.com",
+    phone: user?.phone || "+1-555-123-4567",
+    title: user?.title || "Senior Instructor",
+    bio: user?.bio || "Passionate educator with 10+ years of experience in web development and programming instruction.",
   };
 
   const navigationItems = [
@@ -72,11 +74,13 @@ const InstructorLayout = ({ children }) => {
     { id: "logout", label: "Logout", icon: LogOut, action: "logout" },
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    sessionStorage.clear();
-    router.push('/');
-    closeSidebar();
+  const handleLogout = async () => {
+    try {
+      await logout();
+      closeSidebar();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   const isActive = (href) => {

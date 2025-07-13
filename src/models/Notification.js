@@ -12,8 +12,20 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['info', 'success', 'warning', 'alert', 'promotion', 'payment'],
+    enum: ['info', 'success', 'warning', 'alert', 'promotion', 'payment', 'enrollment', 'review', 'assignment', 'submission'],
     default: 'info'
+  },
+  recipient: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  read: {
+    type: Boolean,
+    default: false
+  },
+  readAt: {
+    type: Date
   },
   status: {
     type: String,
@@ -68,11 +80,24 @@ notificationSchema.methods.markAsSent = function() {
   return this.save();
 };
 
+notificationSchema.methods.markAsRead = function() {
+  this.read = true;
+  this.readAt = new Date();
+  return this.save();
+};
+
+notificationSchema.methods.markAsUnread = function() {
+  this.read = false;
+  this.readAt = null;
+  return this.save();
+};
+
 notificationSchema.statics.createPaymentNotification = async function(paymentData) {
   const notification = new this({
     title: 'New Course Purchase - Commission Earned',
     message: `A student has purchased "${paymentData.courseName}" from instructor ${paymentData.instructorName}. Your commission: $${paymentData.commissionAmount.toFixed(2)} from total payment of $${paymentData.totalAmount.toFixed(2)}.`,
     type: 'payment',
+    recipient: paymentData.adminId,
     status: 'sent',
     sentDate: new Date(),
     recipients: 1,
@@ -83,6 +108,63 @@ notificationSchema.statics.createPaymentNotification = async function(paymentDat
       instructorId: paymentData.instructorId,
       commissionAmount: paymentData.commissionAmount,
       totalAmount: paymentData.totalAmount
+    }
+  });
+  
+  return await notification.save();
+};
+
+notificationSchema.statics.createEnrollmentNotification = async function(enrollmentData) {
+  const notification = new this({
+    title: 'New Student Enrollment',
+    message: `${enrollmentData.studentName} enrolled in your ${enrollmentData.courseName} course`,
+    type: 'enrollment',
+    recipient: enrollmentData.instructorId,
+    status: 'sent',
+    sentDate: new Date(),
+    recipients: 1,
+    metadata: {
+      courseId: enrollmentData.courseId,
+      studentId: enrollmentData.studentId,
+      instructorId: enrollmentData.instructorId
+    }
+  });
+  
+  return await notification.save();
+};
+
+notificationSchema.statics.createReviewNotification = async function(reviewData) {
+  const notification = new this({
+    title: 'New Course Review',
+    message: `${reviewData.studentName} left a ${reviewData.rating}-star review for ${reviewData.courseName}`,
+    type: 'review',
+    recipient: reviewData.instructorId,
+    status: 'sent',
+    sentDate: new Date(),
+    recipients: 1,
+    metadata: {
+      courseId: reviewData.courseId,
+      studentId: reviewData.studentId,
+      instructorId: reviewData.instructorId
+    }
+  });
+  
+  return await notification.save();
+};
+
+notificationSchema.statics.createSubmissionNotification = async function(submissionData) {
+  const notification = new this({
+    title: 'Assignment Submitted',
+    message: `${submissionData.studentName} submitted the ${submissionData.assignmentTitle} assignment`,
+    type: 'submission',
+    recipient: submissionData.instructorId,
+    status: 'sent',
+    sentDate: new Date(),
+    recipients: 1,
+    metadata: {
+      courseId: submissionData.courseId,
+      studentId: submissionData.studentId,
+      instructorId: submissionData.instructorId
     }
   });
   

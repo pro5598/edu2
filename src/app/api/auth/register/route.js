@@ -103,12 +103,10 @@ export async function POST(request) {
     }
 
     const existingUser = await User.findOne({
-      where: {
-        $or: [
-          { username },
-          { email }
-        ]
-      }
+      $or: [
+        { username },
+        { email }
+      ]
     });
 
     if (existingUser) {

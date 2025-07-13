@@ -2,14 +2,20 @@
 import { React, useState } from 'react';
 import { Eye, EyeOff, ArrowRight, BookOpen, User, Shield, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function EduVerseLogin() {
+  const { login } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     username: '',
     password: '',
     rememberMe: false
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -19,10 +25,39 @@ export default function EduVerseLogin() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Student login attempt:', formData);
-    // Handle student login logic here
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+          role: 'student',
+          rememberMe: formData.rememberMe
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        await login(data.user);
+        router.push(data.redirectPath || '/student/dashboard');
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -87,6 +122,13 @@ export default function EduVerseLogin() {
               <h2 className="text-2xl font-semibold text-gray-800 mb-2">Student Login</h2>
               <div className="w-12 h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mx-auto"></div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
 
             {/* Login Form */}
             <div className="space-y-6">
@@ -153,10 +195,20 @@ export default function EduVerseLogin() {
               {/* Login Button */}
               <button
                 onClick={handleSubmit}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-300 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                <span>Log In as Student</span>
-                <ArrowRight className="w-5 h-5" />
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Logging in...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Log In as Student</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
             </div>
 

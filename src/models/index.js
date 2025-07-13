@@ -10,6 +10,8 @@ import Cart from './Cart.js';
 import Wishlist from './Wishlist.js';
 import Payment from './Payment.js';
 import Notification from './Notification.js';
+import Assignment from './Assignment.js';
+import Submission from './Submission.js';
 
 export {
   User,
@@ -22,5 +24,7 @@ export {
   Cart,
   Wishlist,
   Payment,
-  Notification
+  Notification,
+  Assignment,
+  Submission
 };
