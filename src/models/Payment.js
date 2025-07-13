@@ -82,6 +82,8 @@ paymentSchema.index({ instructor: 1 });
 paymentSchema.index({ course: 1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ createdAt: -1 });
+paymentSchema.index({ course: 1, status: 1 });
+paymentSchema.index({ course: 1, createdAt: -1 });
 
 paymentSchema.pre('save', function(next) {
   if (this.isNew || this.isModified('totalAmount')) {

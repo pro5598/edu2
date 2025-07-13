@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import Payment from '../../../../models/Payment.js';
+import { Payment, Notification } from '../../../../models/index.js';
 import { requireAdmin } from '../../../../middleware/auth.js';
 import connectDB from '../../../../lib/database.js';
 
@@ -143,6 +143,24 @@ export async function PUT(request) {
           return NextResponse.json({ error: 'Only pending payments can be completed' }, { status: 400 });
         }
         updatedPayment = await payment.markAsCompleted();
+        
+        await updatedPayment.populate([
+          { path: 'student', select: 'firstName lastName email' },
+          { path: 'course', select: 'title' },
+          { path: 'instructor', select: 'firstName lastName email' }
+        ]);
+        
+        await Notification.createPaymentNotification({
+          paymentId: updatedPayment._id,
+          courseId: updatedPayment.course._id,
+          courseName: updatedPayment.course.title,
+          studentId: updatedPayment.student._id,
+          studentName: `${updatedPayment.student.firstName} ${updatedPayment.student.lastName}`,
+          instructorId: updatedPayment.instructor._id,
+          instructorName: `${updatedPayment.instructor.firstName} ${updatedPayment.instructor.lastName}`,
+          commissionAmount: updatedPayment.adminRevenue,
+          totalAmount: updatedPayment.totalAmount
+        });
         break;
         
       case 'fail':

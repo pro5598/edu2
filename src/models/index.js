@@ -8,6 +8,8 @@ import Cart from './Cart.js';
 import Wishlist from './Wishlist.js';
 import Payment from './Payment.js';
 
+import Notification from './Notification.js';
+
 export {
   User,
   Course,
@@ -16,5 +18,6 @@ export {
   Review,
   Cart,
   Wishlist,
-  Payment
+  Payment,
+  Notification
 };

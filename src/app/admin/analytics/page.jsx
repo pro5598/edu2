@@ -1,35 +1,93 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   BarChart3,
   TrendingUp,
   Users,
   BookOpen,
   DollarSign,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 
 const AdminAnalyticsPage = () => {
-  const analyticsData = {
+  const [analyticsData, setAnalyticsData] = useState({
     overview: {
-      totalRevenue: 245_890,
-      totalUsers: 15_420,
-      totalCourses: 1_250,
-      activeInstructors: 342,
+      totalRevenue: 0,
+      totalUsers: 0,
+      totalCourses: 0,
+      activeInstructors: 0,
     },
-    topCategories: [
-      { name: "Web Development", courses: 450, revenue: 89_500, students: 5_420 },
-      { name: "Data Science",     courses: 280, revenue: 67_800, students: 3_250 },
-      { name: "Mobile Development", courses: 220, revenue: 45_600, students: 2_180 },
-      { name: "UI/UX Design",     courses: 180, revenue: 32_400, students: 1_890 },
-      { name: "DevOps",           courses: 120, revenue: 28_900, students: 1_240 },
-    ],
-    topInstructors: [
-      { name: "John Smith",   courses: 8, students: 2_450, revenue: 28_500 },
-      { name: "Sarah Johnson",courses: 6, students: 1_890, revenue: 22_300 },
-      { name: "Mike Chen",    courses: 5, students: 1_650, revenue: 19_800 },
-      { name: "Emma Wilson",  courses: 4, students: 1_420, revenue: 16_900 },
-    ],
+    topCategories: [],
+    topInstructors: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/admin/analytics', {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics data');
+      }
+
+      const data = await response.json();
+      setAnalyticsData(data);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="w-full p-3 sm:p-4 lg:p-6">
+        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="flex items-center justify-center h-64">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-gray-600">Loading analytics...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full p-3 sm:p-4 lg:p-6">
+        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Analytics</h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button
+                onClick={fetchAnalytics}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full p-3 sm:p-4 lg:p-6">
@@ -105,24 +163,31 @@ const AdminAnalyticsPage = () => {
                 <TrendingUp className="w-5 h-5 text-blue-600" />
                 <span>Top Categories</span>
               </h3>
-              <div className="space-y-4">
-                {analyticsData.topCategories.map((cat, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div>
-                      <h4 className="font-medium text-gray-900">{cat.name}</h4>
-                      <p className="text-sm text-gray-700">
-                        {cat.courses} courses • {cat.students} students
+              {analyticsData.topCategories.length > 0 ? (
+                <div className="space-y-4">
+                  {analyticsData.topCategories.map((cat, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div>
+                        <h4 className="font-medium text-gray-900">{cat.name}</h4>
+                        <p className="text-sm text-gray-700">
+                          {cat.courses} courses • {cat.students} students
+                        </p>
+                      </div>
+                      <p className="font-bold text-green-600">
+                        ${cat.revenue.toLocaleString()}
                       </p>
                     </div>
-                    <p className="font-bold text-green-600">
-                      ${cat.revenue.toLocaleString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No category data available</p>
+                </div>
+              )}
             </div>
 
             {/* Top Instructors */}
@@ -131,24 +196,31 @@ const AdminAnalyticsPage = () => {
                 <Users className="w-5 h-5 text-purple-600" />
                 <span>Top Instructors</span>
               </h3>
-              <div className="space-y-4">
-                {analyticsData.topInstructors.map((inst, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div>
-                      <h4 className="font-medium text-gray-900">{inst.name}</h4>
-                      <p className="text-sm text-gray-700">
-                        {inst.courses} courses • {inst.students} students
+              {analyticsData.topInstructors.length > 0 ? (
+                <div className="space-y-4">
+                  {analyticsData.topInstructors.map((inst, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div>
+                        <h4 className="font-medium text-gray-900">{inst.name}</h4>
+                        <p className="text-sm text-gray-700">
+                          {inst.courses} courses • {inst.students} students
+                        </p>
+                      </div>
+                      <p className="font-bold text-green-600">
+                        ${inst.revenue.toLocaleString()}
                       </p>
                     </div>
-                    <p className="font-bold text-green-600">
-                      ${inst.revenue.toLocaleString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No instructor data available</p>
+                </div>
+              )}
             </div>
           </div>
 

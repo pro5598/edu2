@@ -1,146 +1,146 @@
 import { NextResponse } from 'next/server';
-import { User, Course, Enrollment, Review } from '../../../../models';
-import { authenticateToken, requireAdmin } from '../../../../middleware/auth';
-import { Op } from 'sequelize';
+import connectDB from '@/lib/database';
+import { authenticateToken } from '@/middleware/auth';
+import { User, Course, Payment, Enrollment } from '@/models';
 
 export async function GET(request) {
   try {
-    const authResult = await new Promise((resolve) => {
-      authenticateToken(request, NextResponse, (result) => {
-        resolve(result);
-      });
-    });
-
-    if (authResult instanceof NextResponse) {
-      return authResult;
+    await connectDB();
+    
+    const authResult = await authenticateToken(request);
+    if (authResult.error) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status });
     }
 
-    const roleResult = await new Promise((resolve) => {
-      requireAdmin(request, NextResponse, (result) => {
-        resolve(result);
-      });
-    });
-
-    if (roleResult instanceof NextResponse) {
-      return roleResult;
+    if (authResult.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const totalUsers = await User.count();
-    const totalStudents = await User.count({ where: { role: 'student' } });
-    const totalInstructors = await User.count({ where: { role: 'instructor' } });
-    const totalCourses = await Course.count();
-    const publishedCourses = await Course.count({ where: { isPublished: true } });
-    const totalEnrollments = await Enrollment.count();
-    const totalReviews = await Review.count();
-
-    const totalRevenue = await Enrollment.sum('paidAmount') || 0;
-
-    const thisMonth = new Date();
-    thisMonth.setDate(1);
-    thisMonth.setHours(0, 0, 0, 0);
-
-    const monthlyEnrollments = await Enrollment.count({
-      where: {
-        enrollmentDate: {
-          [Op.gte]: thisMonth
-        }
-      }
-    });
-
-    const monthlyRevenue = await Enrollment.sum('paidAmount', {
-      where: {
-        enrollmentDate: {
-          [Op.gte]: thisMonth
-        }
-      }
-    }) || 0;
-
-    const topCourses = await Course.findAll({
-      attributes: ['id', 'title', 'totalStudents', 'averageRating'],
-      order: [['totalStudents', 'DESC']],
-      limit: 5
-    });
-
-    const recentEnrollments = await Enrollment.findAll({
-      include: [
-        {
-          model: User,
-          as: 'student',
-          attributes: ['firstName', 'lastName']
-        },
-        {
-          model: Course,
-          as: 'course',
-          attributes: ['title']
-        }
-      ],
-      order: [['enrollmentDate', 'DESC']],
-      limit: 10
-    });
-
-    const last6Months = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      date.setDate(1);
-      date.setHours(0, 0, 0, 0);
-      
-      const nextMonth = new Date(date);
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-      
-      const enrollments = await Enrollment.count({
-        where: {
-          enrollmentDate: {
-            [Op.gte]: date,
-            [Op.lt]: nextMonth
-          }
-        }
-      });
-      
-      const revenue = await Enrollment.sum('paidAmount', {
-        where: {
-          enrollmentDate: {
-            [Op.gte]: date,
-            [Op.lt]: nextMonth
-          }
-        }
-      }) || 0;
-      
-      last6Months.push({
-        month: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        enrollments,
-        revenue
-      });
-    }
+    const [overviewStats, topCategories, topInstructors] = await Promise.all([
+      getOverviewStats(),
+      getTopCategories(),
+      getTopInstructors()
+    ]);
 
     return NextResponse.json({
-      overview: {
-        totalUsers,
-        totalStudents,
-        totalInstructors,
-        totalCourses,
-        publishedCourses,
-        totalEnrollments,
-        totalReviews,
-        totalRevenue,
-        monthlyEnrollments,
-        monthlyRevenue
-      },
-      topCourses,
-      recentEnrollments: recentEnrollments.map(enrollment => ({
-        id: enrollment.id,
-        studentName: `${enrollment.student.firstName} ${enrollment.student.lastName}`,
-        courseTitle: enrollment.course.title,
-        enrollmentDate: enrollment.enrollmentDate,
-        paidAmount: enrollment.paidAmount
-      })),
-      monthlyData: last6Months
+      overview: overviewStats,
+      topCategories,
+      topInstructors
     });
+
   } catch (error) {
-    console.error('Get analytics error:', error);
+    console.error('Error fetching analytics:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch analytics data' },
       { status: 500 }
     );
   }
+}
+
+async function getOverviewStats() {
+  const [totalRevenue, totalUsers, totalCourses, activeInstructors] = await Promise.all([
+    Payment.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$adminRevenue' } } }
+    ]),
+    User.countDocuments({ isActive: true }),
+    Course.countDocuments({ isActive: true }),
+    User.countDocuments({ role: 'instructor', isActive: true })
+  ]);
+
+  return {
+    totalRevenue: totalRevenue[0]?.total || 0,
+    totalUsers,
+    totalCourses,
+    activeInstructors
+  };
+}
+
+async function getTopCategories() {
+  const categories = await Course.aggregate([
+    { $match: { isActive: true } },
+    {
+      $group: {
+        _id: '$category',
+        courses: { $sum: 1 },
+        courseIds: { $push: '$_id' }
+      }
+    },
+    { $sort: { courses: -1 } },
+    { $limit: 5 }
+  ]);
+
+  const categoriesWithStats = await Promise.all(
+    categories.map(async (cat) => {
+      const [enrollmentStats, revenueStats] = await Promise.all([
+        Enrollment.countDocuments({ course: { $in: cat.courseIds } }),
+        Payment.aggregate([
+          {
+            $lookup: {
+              from: 'courses',
+              localField: 'course',
+              foreignField: '_id',
+              as: 'courseData'
+            }
+          },
+          { $unwind: '$courseData' },
+          { $match: { 'courseData.category': cat._id, status: 'completed' } },
+          { $group: { _id: null, total: { $sum: '$adminRevenue' } } }
+        ])
+      ]);
+
+      return {
+        name: cat._id,
+        courses: cat.courses,
+        students: enrollmentStats,
+        revenue: revenueStats[0]?.total || 0
+      };
+    })
+  );
+
+  return categoriesWithStats.sort((a, b) => b.revenue - a.revenue);
+}
+
+async function getTopInstructors() {
+  const instructors = await User.aggregate([
+    { $match: { role: 'instructor', isActive: true } },
+    {
+      $lookup: {
+        from: 'courses',
+        localField: '_id',
+        foreignField: 'instructor',
+        as: 'courses'
+      }
+    },
+    {
+      $addFields: {
+        courseCount: { $size: '$courses' },
+        courseIds: '$courses._id'
+      }
+    },
+    { $match: { courseCount: { $gt: 0 } } },
+    { $sort: { courseCount: -1 } },
+    { $limit: 10 }
+  ]);
+
+  const instructorsWithStats = await Promise.all(
+    instructors.map(async (instructor) => {
+      const [studentCount, revenue] = await Promise.all([
+        Enrollment.countDocuments({ course: { $in: instructor.courseIds } }),
+        Payment.aggregate([
+          { $match: { instructor: instructor._id, status: 'completed' } },
+          { $group: { _id: null, total: { $sum: '$instructorAmount' } } }
+        ])
+      ]);
+
+      return {
+        name: `${instructor.firstName} ${instructor.lastName}`,
+        courses: instructor.courseCount,
+        students: studentCount,
+        revenue: revenue[0]?.total || 0
+      };
+    })
+  );
+
+  return instructorsWithStats.sort((a, b) => b.revenue - a.revenue).slice(0, 4);
 }

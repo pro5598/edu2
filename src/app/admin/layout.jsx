@@ -18,10 +18,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "../../contexts/AuthContext";
 
 const AdminLayout = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const { logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const profileData = {
@@ -88,10 +90,8 @@ const AdminLayout = ({ children }) => {
     { id: "logout", label: "Logout", icon: LogOut, action: "logout" },
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    sessionStorage.clear();
-    router.push('/');
+  const handleLogout = async () => {
+    await logout();
     closeSidebar();
   };
 
