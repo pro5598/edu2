@@ -15,8 +15,9 @@ export async function GET(request, { params }) {
     const instructorId = authResult.user._id;
 
     // Verify assignment belongs to instructor
+    const { assignmentId } = await params;
     const assignment = await Assignment.findOne({
-      _id: params.assignmentId,
+      _id: assignmentId,
       instructor: instructorId
     });
 
@@ -31,7 +32,7 @@ export async function GET(request, { params }) {
     const skip = (page - 1) * limit;
 
     // Build query
-    let query = { assignment: params.assignmentId };
+    let query = { assignment: assignmentId };
     if (status) {
       query.status = status;
     }
@@ -47,10 +48,10 @@ export async function GET(request, { params }) {
 
     // Calculate statistics
     const stats = {
-      total: await Submission.countDocuments({ assignment: params.assignmentId }),
-      graded: await Submission.countDocuments({ assignment: params.assignmentId, isGraded: true }),
-      pending: await Submission.countDocuments({ assignment: params.assignmentId, isGraded: false }),
-      late: await Submission.countDocuments({ assignment: params.assignmentId, isLate: true })
+      total: await Submission.countDocuments({ assignment: assignmentId }),
+      graded: await Submission.countDocuments({ assignment: assignmentId, isGraded: true }),
+      pending: await Submission.countDocuments({ assignment: assignmentId, isGraded: false }),
+      late: await Submission.countDocuments({ assignment: assignmentId, isLate: true })
     };
 
     return NextResponse.json({

@@ -15,8 +15,9 @@ export async function GET(request, { params }) {
     const instructorId = authResult.user._id;
 
     // Verify assignment belongs to instructor
+    const { assignmentId, submissionId } = await params;
     const assignment = await Assignment.findOne({
-      _id: params.assignmentId,
+      _id: assignmentId,
       instructor: instructorId
     });
 
@@ -25,8 +26,8 @@ export async function GET(request, { params }) {
     }
 
     const submission = await Submission.findOne({
-      _id: params.submissionId,
-      assignment: params.assignmentId
+      _id: submissionId,
+      assignment: assignmentId
     })
     .populate('student', 'firstName lastName email profileImage')
     .populate('assignment', 'title maxScore dueDate allowLateSubmission latePenalty')
@@ -64,8 +65,9 @@ export async function PUT(request, { params }) {
     const instructorId = authResult.user._id;
 
     // Verify assignment belongs to instructor
+    const { assignmentId, submissionId } = await params;
     const assignment = await Assignment.findOne({
-      _id: params.assignmentId,
+      _id: assignmentId,
       instructor: instructorId
     });
 
@@ -74,8 +76,8 @@ export async function PUT(request, { params }) {
     }
 
     const submission = await Submission.findOne({
-      _id: params.submissionId,
-      assignment: params.assignmentId
+      _id: submissionId,
+      assignment: assignmentId
     });
 
     if (!submission) {

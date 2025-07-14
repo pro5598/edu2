@@ -22,7 +22,8 @@ export async function POST(request, { params }) {
     const studentId = student._id;
 
     // Get assignment and verify it exists
-    const assignment = await Assignment.findById(params.assignmentId).populate('course');
+    const { assignmentId } = await params;
+    const assignment = await Assignment.findById(assignmentId).populate('course');
     if (!assignment) {
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
@@ -45,7 +46,7 @@ export async function POST(request, { params }) {
 
     // Check if submission already exists
     const existingSubmission = await Submission.findOne({
-      assignment: params.assignmentId,
+      assignment: assignmentId,
       student: studentId
     });
 
@@ -99,7 +100,7 @@ export async function POST(request, { params }) {
 
     // Create submission
     const submission = new Submission({
-      assignment: params.assignmentId,
+      assignment: assignmentId,
       student: studentId,
       submissionText,
       submissionFiles,

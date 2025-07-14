@@ -13,7 +13,7 @@ export async function PUT(request, { params }) {
     }
 
     await connectDB();
-    const { courseId, chapterId, lessonId } = params;
+    const { courseId, chapterId, lessonId } = await params;
     const instructorId = authResult.user._id;
     
     const formData = await request.formData();
@@ -86,7 +86,7 @@ export async function DELETE(request, { params }) {
     }
 
     await connectDB();
-    const { courseId, chapterId, lessonId } = params;
+    const { courseId, chapterId, lessonId } = await params;
     const instructorId = authResult.user._id;
 
     const course = await Course.findOne({ _id: courseId, instructor: instructorId });

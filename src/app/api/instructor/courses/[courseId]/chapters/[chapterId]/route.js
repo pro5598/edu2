@@ -11,7 +11,7 @@ export async function PUT(request, { params }) {
     }
 
     await connectDB();
-    const { courseId, chapterId } = params;
+    const { courseId, chapterId } = await params;
     const instructorId = authResult.user._id;
     const updateData = await request.json();
 
@@ -51,7 +51,7 @@ export async function DELETE(request, { params }) {
     }
 
     await connectDB();
-    const { courseId, chapterId } = params;
+    const { courseId, chapterId } = await params;
     const instructorId = authResult.user._id;
 
     const course = await Course.findOne({ _id: courseId, instructor: instructorId });

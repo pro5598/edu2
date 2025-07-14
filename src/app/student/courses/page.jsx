@@ -24,12 +24,13 @@ const StudentCoursesPage = () => {
       setLoading(true);
       setError(null);
 
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/enrollments', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies in the request
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (!response.ok) {
@@ -70,12 +71,13 @@ const StudentCoursesPage = () => {
     }
     
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/courses/rate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        credentials: 'include', // Include cookies in the request
         body: JSON.stringify({
            courseId: selectedCourse.id,
            enrollmentId: selectedCourse.enrollmentId,
@@ -137,12 +139,16 @@ const StudentCoursesPage = () => {
           )}
         </div>
 
+
+
         {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center space-x-3">
               <RefreshCw className="w-6 h-6 text-blue-600 animate-spin" />
-              <span className="text-gray-600">Loading your courses...</span>
+              <span className="text-gray-600">
+                Loading your courses...
+              </span>
             </div>
           </div>
         )}
@@ -153,8 +159,12 @@ const StudentCoursesPage = () => {
             <div className="flex items-center space-x-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
               <div>
-                <h3 className="text-red-800 font-medium">Error loading courses</h3>
-                <p className="text-red-700 text-sm mt-1">{error}</p>
+                <h3 className="text-red-800 font-medium">
+                  Error loading courses
+                </h3>
+                <p className="text-red-700 text-sm mt-1">
+                  {error}
+                </p>
                 <button
                   onClick={fetchEnrolledCourses}
                   className="mt-2 text-red-600 hover:text-red-700 text-sm font-medium"
@@ -282,6 +292,8 @@ const StudentCoursesPage = () => {
            })}
         </div>
         )}
+
+
 
         {/* Rating Modal */}
         {showRatingModal && (

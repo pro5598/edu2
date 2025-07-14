@@ -4,7 +4,7 @@ import { authenticateToken, requireInstructor } from '../../../../middleware/aut
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const course = await Course.findByPk(id, {
       include: [
@@ -75,7 +75,7 @@ export async function PUT(request, { params }) {
       return authResult;
     }
 
-    const { id } = params;
+    const { id } = await params;
     const updateData = await request.json();
 
     const course = await Course.findByPk(id);
@@ -120,7 +120,7 @@ export async function DELETE(request, { params }) {
       return authResult;
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const course = await Course.findByPk(id);
     if (!course) {

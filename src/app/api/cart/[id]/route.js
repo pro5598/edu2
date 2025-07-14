@@ -14,7 +14,7 @@ export async function DELETE(request, { params }) {
       return authResult;
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const cartItem = await Cart.findOne({
       where: {

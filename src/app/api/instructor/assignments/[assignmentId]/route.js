@@ -16,8 +16,9 @@ export async function GET(request, { params }) {
     await connectDB();
     const instructorId = authResult.user._id;
 
+    const { assignmentId } = await params;
     const assignment = await Assignment.findOne({
-      _id: params.assignmentId,
+      _id: assignmentId,
       instructor: instructorId
     }).populate('course', 'title');
 
@@ -44,8 +45,9 @@ export async function PUT(request, { params }) {
     await connectDB();
     const instructorId = authResult.user._id;
 
+    const { assignmentId } = await params;
     const assignment = await Assignment.findOne({
-      _id: params.assignmentId,
+      _id: assignmentId,
       instructor: instructorId
     });
 
@@ -114,8 +116,9 @@ export async function DELETE(request, { params }) {
     await connectDB();
     const instructorId = authResult.user._id;
 
+    const { assignmentId } = await params;
     const assignment = await Assignment.findOne({
-      _id: params.assignmentId,
+      _id: assignmentId,
       instructor: instructorId
     });
 

@@ -14,6 +14,8 @@ import {
   Trash2,
   Filter,
   Search,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 
 const NotificationsPage = () => {
@@ -21,76 +23,71 @@ const NotificationsPage = () => {
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Mock notifications data
-  const mockNotifications = [
-    {
-      id: 1,
-      type: "course",
-      title: "New Course Available",
-      message: "Advanced React Development course is now available for enrollment.",
-      timestamp: "2025-07-13T10:30:00Z",
-      isRead: false,
-      icon: BookOpen,
-      color: "blue",
-    },
-    {
-      id: 2,
-      type: "order",
-      title: "Order Confirmed",
-      message: "Your order #12345 has been confirmed and is being processed.",
-      timestamp: "2025-07-13T09:15:00Z",
-      isRead: false,
-      icon: ShoppingCart,
-      color: "green",
-    },
-    {
-      id: 3,
-      type: "review",
-      title: "Course Review Request",
-      message: "Please review your completed course 'JavaScript Fundamentals'.",
-      timestamp: "2025-07-12T16:45:00Z",
-      isRead: true,
-      icon: Star,
-      color: "yellow",
-    },
-    {
-      id: 4,
-      type: "wishlist",
-      title: "Wishlist Item on Sale",
-      message: "Python for Beginners from your wishlist is now 50% off!",
-      timestamp: "2025-07-12T14:20:00Z",
-      isRead: false,
-      icon: Heart,
-      color: "red",
-    },
-    {
-      id: 5,
-      type: "system",
-      title: "System Maintenance",
-      message: "Scheduled maintenance will occur tonight from 2-4 AM EST.",
-      timestamp: "2025-07-12T12:00:00Z",
-      isRead: true,
-      icon: Settings,
-      color: "gray",
-    },
-    {
-      id: 6,
-      type: "course",
-      title: "Course Progress Update",
-      message: "You're 75% complete with 'Web Development Bootcamp'. Keep going!",
-      timestamp: "2025-07-11T18:30:00Z",
-      isRead: true,
-      icon: BookOpen,
-      color: "purple",
-    },
-  ];
+  // Icon mapping for notification types
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case "course": return BookOpen;
+      case "order": return ShoppingCart;
+      case "review": return Star;
+      case "wishlist": return Heart;
+      case "system": return Settings;
+      default: return Bell;
+    }
+  };
+
+  // Color mapping for notification types
+  const getNotificationColor = (type) => {
+    switch (type) {
+      case "course": return "blue";
+      case "order": return "green";
+      case "review": return "yellow";
+      case "wishlist": return "red";
+      case "system": return "gray";
+      default: return "blue";
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Please log in to view your notifications');
+        return;
+      }
+
+      const response = await fetch('/api/student/notifications', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch notifications');
+      }
+
+      const data = await response.json();
+      const processedNotifications = (data.notifications || []).map(notification => ({
+        ...notification,
+        icon: getNotificationIcon(notification.type),
+        color: getNotificationColor(notification.type),
+      }));
+      setNotifications(processedNotifications);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      setError(err.message || 'Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setTimeout(() => {
-      setNotifications(mockNotifications);
-      setLoading(false);
-    }, 1000);
+    fetchNotifications();
   }, []);
 
   const formatTimeAgo = (timestamp) => {
@@ -108,40 +105,125 @@ const NotificationsPage = () => {
     return `${diffInDays}d ago`;
   };
 
-  const markAsRead = (id) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
+  const markAsRead = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`/api/student/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === id
+              ? { ...notification, isRead: true }
+              : notification
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
+    }
   };
 
-  const markAsUnread = (id) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id
-          ? { ...notification, isRead: false }
-          : notification
-      )
-    );
+  const markAsUnread = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`/api/student/notifications/${id}/unread`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === id
+              ? { ...notification, isRead: false }
+              : notification
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error marking notification as unread:', err);
+    }
   };
 
-  const deleteNotification = (id) => {
-    setNotifications(prev =>
-      prev.filter(notification => notification.id !== id)
-    );
+  const deleteNotification = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`/api/student/notifications/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setNotifications(prev =>
+          prev.filter(notification => notification.id !== id)
+        );
+      }
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/student/notifications/mark-all-read', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setNotifications(prev =>
+          prev.map(notification => ({ ...notification, isRead: true }))
+        );
+      }
+    } catch (err) {
+      console.error('Error marking all notifications as read:', err);
+    }
   };
 
-  const clearAllNotifications = () => {
-    setNotifications([]);
+  const clearAllNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/student/notifications/clear-all', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setNotifications([]);
+      }
+    } catch (err) {
+      console.error('Error clearing all notifications:', err);
+    }
   };
 
   const filteredNotifications = notifications.filter(notification => {
@@ -237,16 +319,13 @@ const NotificationsPage = () => {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-slate-800">Notifications</h1>
         </div>
-        <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="bg-slate-300 h-20 rounded-lg"></div>
-            </div>
-          ))}
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Loading notifications...</span>
         </div>
       </div>
     );
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -267,6 +346,14 @@ const NotificationsPage = () => {
         
         <div className="flex items-center space-x-2">
           <button
+            onClick={fetchNotifications}
+            disabled={loading}
+            className="px-4 py-2 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+          <button
             onClick={markAllAsRead}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={unreadCount === 0}
@@ -283,29 +370,75 @@ const NotificationsPage = () => {
         </div>
       </div>
 
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+            <span className="text-red-800">{error}</span>
+          </div>
+          <button
+            onClick={fetchNotifications}
+            className="mt-3 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {/* Search and Filter */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+          <div className="relative flex-1 sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search notifications..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+            >
+              <option value="all">All Notifications</option>
+              <option value="unread">Unread</option>
+              <option value="read">Read</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
 
 
       {/* Notifications List */}
-      <div className="space-y-4">
-        {filteredNotifications.length === 0 ? (
-          <div className="text-center py-12">
-            <Bell className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-700 mb-2">
-              {notifications.length === 0 ? "No notifications yet" : "No notifications found"}
-            </h3>
-            <p className="text-slate-600">
-              {notifications.length === 0 
-                ? "You'll see notifications here when you have new activities."
-                : "Try adjusting your search or filter criteria."
-              }
-            </p>
-          </div>
-        ) : (
-          filteredNotifications.map((notification) => (
-            <NotificationItem key={notification.id} notification={notification} />
-          ))
-        )}
-      </div>
+      {!loading && !error && (
+        <div className="space-y-4">
+          {filteredNotifications.length === 0 ? (
+            <div className="text-center py-12">
+              <Bell className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-slate-700 mb-2">
+                {notifications.length === 0 ? "No notifications yet" : "No notifications found"}
+              </h3>
+              <p className="text-slate-600">
+                {notifications.length === 0 
+                  ? "You'll see notifications here when you have new activities."
+                  : "Try adjusting your search or filter criteria."
+                }
+              </p>
+            </div>
+          ) : (
+            filteredNotifications.map((notification) => (
+              <NotificationItem key={notification.id} notification={notification} />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 };

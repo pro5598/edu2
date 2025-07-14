@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ShoppingCart,
   Trash2,
@@ -20,39 +20,41 @@ import {
 } from "lucide-react";
 
 const CartPage = () => {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      title: "Complete Web Development Bootcamp",
-      instructor: "Angela Yu",
-      rating: 4.8,
-      reviews: 2847,
-      price: 89.99,
-      originalPrice: 199.99,
-      duration: "65 hours",
-      lessons: 120,
-      image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop",
-      category: "Web Development",
-    },
-    {
-      id: 2,
-      title: "Python for Data Science",
-      instructor: "Jose Portilla",
-      rating: 4.9,
-      reviews: 1923,
-      price: 79.99,
-      originalPrice: 149.99,
-      duration: "45 hours",
-      lessons: 85,
-      image: "https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=400&h=300&fit=crop",
-      category: "Data Science",
-    },
-  ]);
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
+
+  const fetchCart = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/student/cart', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch cart');
+      }
+      
+      const data = await response.json();
+      setCartItems(data.cartItems || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching cart:', err);
+      setError('Failed to load cart');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCart();
+  }, []);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -69,12 +71,25 @@ const CartPage = () => {
     cardName: ''
   });
 
-  const removeFromCart = (courseId) => {
-    setCartItems(cartItems.filter(item => item.id !== courseId));
+  const removeFromCart = async (courseId) => {
+    try {
+      const response = await fetch(`/api/student/cart/${courseId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to remove from cart');
+      }
+      
+      setCartItems(cartItems.filter(item => item.course._id !== courseId));
+    } catch (err) {
+      console.error('Error removing from cart:', err);
+    }
   };
 
   const calculateSubtotal = () => {
-    return cartItems.reduce((sum, item) => sum + item.price, 0);
+    return cartItems.reduce((sum, item) => sum + (item.course.price || 0), 0);
   };
 
   const calculateTotal = () => {
@@ -97,21 +112,66 @@ const CartPage = () => {
     e.preventDefault();
     setIsProcessing(true);
     
-    // Simulate payment processing
-    setTimeout(() => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Please log in to complete your purchase');
+      }
+
+      // Prepare contact info and billing address from form data
+      const contactInfo = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone
+      };
+
+      const billingAddress = {
+        address: formData.address,
+        city: formData.city,
+        zipCode: formData.zipCode,
+        country: 'US' // Default country
+      };
+
+      const response = await fetch('/api/student/purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          paymentMethod: 'credit_card',
+          contactInfo,
+          billingAddress
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Purchase failed');
+      }
+
       setIsProcessing(false);
       setShowCheckoutModal(false);
       
-      // Generate order number
-      const orderNum = 'ORD-' + Date.now().toString().slice(-6);
-      setOrderNumber(orderNum);
+      // Set order number from response
+      setOrderNumber(data.order.orderNumber);
       setShowSuccessModal(true);
       
-      // Clear cart after successful purchase
+      // Refresh cart to show empty state
+      await fetchCart();
+      
+    } catch (error) {
+      console.error('Payment error:', error);
+      setIsProcessing(false);
+      setError(error.message || 'Payment failed. Please try again.');
+      
+      // Clear error after 5 seconds
       setTimeout(() => {
-        setCartItems([]);
-      }, 3000);
-    }, 3000);
+        setError('');
+      }, 5000);
+    }
   };
 
   const closeModals = () => {
@@ -131,6 +191,36 @@ const CartPage = () => {
       cardName: ''
     });
   };
+
+  if (loading) {
+    return (
+      <div className="w-full p-3 sm:p-4 lg:p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full p-3 sm:p-4 lg:p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="text-center py-12">
+            <p className="text-red-600 mb-4">{error}</p>
+            <button 
+              onClick={fetchCart}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (cartItems.length === 0 && !showSuccessModal) {
     return (
@@ -156,7 +246,7 @@ const CartPage = () => {
   }
 
   return (
-    <>
+    <React.Fragment>
       <div className="w-full p-3 sm:p-4 lg:p-6">
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
           
@@ -178,26 +268,26 @@ const CartPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 p-4 sm:p-6">
             {/* Cart Items */}
             <div className="lg:col-span-2">
-              <div className="space-y-4">
-                {cartItems.map((course) => (
+              <div className="space-y-4">	
+                {cartItems.map((item, index) => (
                   <div
-                    key={course.id}
+                    key={index}
                     className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow"
                   >
                     <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
                       <img
-                        src={course.image}
-                        alt={course.title}
+                        src={item.course.thumbnail || '/api/placeholder/300/200'}
+                        alt={item.course.title}
                         className="w-full sm:w-32 h-32 object-cover rounded-lg"
                       />
                       
                       <div className="flex-1">
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="font-bold text-lg text-slate-800 line-clamp-2">
-                            {course.title}
+                            {item.course.title}
                           </h3>
                           <button
-                            onClick={() => removeFromCart(course.id)}
+                            onClick={() => removeFromCart(item.course._id)}
                             className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                             title="Remove from cart"
                           >
@@ -206,7 +296,7 @@ const CartPage = () => {
                         </div>
                         
                         <p className="text-sm text-slate-600 mb-2">
-                          by {course.instructor}
+                          by {item.course.instructor}
                         </p>
                         
                         <div className="flex items-center space-x-4 mb-3">
@@ -214,9 +304,9 @@ const CartPage = () => {
                             <div className="flex">
                               {[...Array(5)].map((_, i) => (
                                 <Star
-                                  key={i}
+                                  key={`${item._id}-star-${i}`}
                                   className={`w-4 h-4 ${
-                                    i < Math.floor(course.rating)
+                                    i < Math.floor(item.course.averageRating || 0)
                                       ? "text-yellow-400 fill-current"
                                       : "text-gray-300"
                                   }`}
@@ -224,7 +314,7 @@ const CartPage = () => {
                               ))}
                             </div>
                             <span className="text-sm text-slate-600">
-                              {course.rating} ({course.reviews})
+                              {item.course.averageRating || 0} ({item.course.totalReviews || 0})
                             </span>
                           </div>
                         </div>
@@ -233,11 +323,11 @@ const CartPage = () => {
                           <div className="flex items-center space-x-4">
                             <div className="flex items-center space-x-1">
                               <Clock className="w-4 h-4" />
-                              <span>{course.duration}</span>
+                              <span>{item.course.duration || 'N/A'}</span>
                             </div>
                             <div className="flex items-center space-x-1">
                               <BookOpen className="w-4 h-4" />
-                              <span>{course.lessons} lessons</span>
+                              <span>{item.course.totalLessons || 0} lessons</span>
                             </div>
                           </div>
                         </div>
@@ -245,11 +335,11 @@ const CartPage = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <span className="text-xl font-bold text-slate-800">
-                              ${course.price}
+                              ${item.course.price || 0}
                             </span>
-                            {course.originalPrice > course.price && (
-                              <span className="text-sm line-through text-slate-500">
-                                ${course.originalPrice}
+                            {item.priceWhenAdded && item.priceWhenAdded > item.course.price && (
+                              <span key={`${item._id}-original-price`} className="text-sm line-through text-slate-500">
+                                ${item.priceWhenAdded}
                               </span>
                             )}
                           </div>
@@ -299,7 +389,7 @@ const CartPage = () => {
 
       {/* Checkout Modal */}
       {showCheckoutModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div key="checkout-modal" className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="p-6 border-b border-gray-200">
@@ -320,10 +410,10 @@ const CartPage = () => {
               <div className="bg-blue-50 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 mb-2">Order Summary</h4>
                 <div className="space-y-1 text-sm text-blue-800">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex justify-between">
-                      <span>{item.title}</span>
-                      <span>${item.price}</span>
+                  {cartItems.map((item,index) => (
+                    <div key={index} className="flex justify-between">
+                      <span>{item.course.title}</span>
+                      <span>${item.course.price || 0}</span>
                     </div>
                   ))}
                   <div className="border-t border-blue-200 pt-2 mt-2 font-semibold">
@@ -493,7 +583,7 @@ const CartPage = () => {
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div key="success-modal" className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div className="p-6 text-center">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
@@ -514,10 +604,10 @@ const CartPage = () => {
               </div>
               
               <div className="space-y-2 mb-6">
-                <div className="text-sm text-gray-600">Purchased Courses:</div>
-                {cartItems.map((item) => (
-                  <div key={item.id} className="text-sm font-medium text-gray-900">
-                    {item.title}
+                <div className="text-sm text-gray-600 mb-2">Purchased Courses:</div>
+                {cartItems.map((item,index) => (
+                  <div key={index} className="text-sm font-medium text-gray-900">
+                    {item.course.title}
                   </div>
                 ))}
               </div>
@@ -540,7 +630,7 @@ const CartPage = () => {
           </div>
         </div>
       )}
-    </>
+    </React.Fragment>
   );
 };
 
