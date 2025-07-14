@@ -150,8 +150,9 @@ const CourseLessonsPage = () => {
           setCourseStatus(progressData.status || 'active');
           setCompletionDate(progressData.completionDate);
           
-          // We'll update this after allLessons is available
+          // Store completed lesson IDs for mapping to indices
           window.completedLessonIds = completedLessonIds;
+          console.log('Fetched completed lesson IDs:', completedLessonIds);
         }
       } catch (error) {
         console.error('Error fetching progress data:', error);
@@ -174,12 +175,20 @@ const CourseLessonsPage = () => {
   // Map completed lesson IDs to indices when allLessons is available
   useEffect(() => {
     if (allLessons.length > 0 && window.completedLessonIds) {
+      console.log('Mapping lesson IDs to indices...');
+      console.log('All lessons:', allLessons.map(l => ({ id: l._id || l.id, title: l.title })));
+      console.log('Completed lesson IDs from API:', window.completedLessonIds);
+      
       const completedIndices = [];
       allLessons.forEach((lesson, index) => {
-        if (window.completedLessonIds.includes(lesson._id)) {
+        const lessonId = lesson._id || lesson.id;
+        if (window.completedLessonIds.includes(lessonId)) {
           completedIndices.push(index);
+          console.log(`Lesson "${lesson.title}" (ID: ${lessonId}) is completed - mapped to index ${index}`);
         }
       });
+      
+      console.log('Final completed indices:', completedIndices);
       setCompletedLessons(completedIndices);
       delete window.completedLessonIds;
     }
