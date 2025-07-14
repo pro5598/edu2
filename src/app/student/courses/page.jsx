@@ -24,13 +24,12 @@ const StudentCoursesPage = () => {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/enrollments', {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -71,13 +70,12 @@ const StudentCoursesPage = () => {
     }
     
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/courses/rate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
            courseId: selectedCourse.id,
            enrollmentId: selectedCourse.enrollmentId,

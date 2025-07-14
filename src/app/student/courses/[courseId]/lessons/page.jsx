@@ -48,6 +48,9 @@ const CourseLessonsPage = () => {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [courseProgress, setCourseProgress] = useState(0);
+  const [courseStatus, setCourseStatus] = useState('active');
+  const [completionDate, setCompletionDate] = useState(null);
 
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showViewSubmissionModal, setShowViewSubmissionModal] = useState(false);
@@ -118,12 +121,40 @@ const CourseLessonsPage = () => {
 
         setCourseData(formattedCourseData);
         setError(null);
+        
+        // Fetch progress data after course data is loaded
+        await fetchProgressData();
       } catch (err) {
         console.error('Error fetching course data:', err);
         setError(err.message);
         setCourseData(null);
       } finally {
         setLoading(false);
+      }
+    };
+
+    const fetchProgressData = async () => {
+      try {
+        const response = await fetch(`/api/student/courses/${courseId}/progress`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const progressData = await response.json();
+          const completedLessonIds = progressData.completedLessons;
+          
+          // Store progress information
+          setCourseProgress(progressData.progress || 0);
+          setCourseStatus(progressData.status || 'active');
+          setCompletionDate(progressData.completionDate);
+          
+          // We'll update this after allLessons is available
+          window.completedLessonIds = completedLessonIds;
+        }
+      } catch (error) {
+        console.error('Error fetching progress data:', error);
       }
     };
 
@@ -137,24 +168,24 @@ const CourseLessonsPage = () => {
       ? courseData.chapters.flatMap(chapter => chapter.lessons || [])
       : courseData.lessons || []) : [];
 
-  console.log('=== ALL LESSONS CALCULATION ===');
-  console.log('allLessons:', allLessons);
-  console.log('allLessons.length:', allLessons.length);
+
   const currentLessonData = allLessons[currentLesson];
   
-  // Debug logging
+  // Map completed lesson IDs to indices when allLessons is available
   useEffect(() => {
-    if (currentLessonData) {
-      console.log('Current lesson data:', currentLessonData);
-      console.log('Video URL:', currentLessonData.videoUrl);
-      if (currentLessonData.videoUrl) {
-        const fullUrl = currentLessonData.videoUrl.startsWith('http') 
-          ? currentLessonData.videoUrl 
-          : `${window.location.origin}${currentLessonData.videoUrl}`;
-        console.log('Full video URL:', fullUrl);
-      }
+    if (allLessons.length > 0 && window.completedLessonIds) {
+      const completedIndices = [];
+      allLessons.forEach((lesson, index) => {
+        if (window.completedLessonIds.includes(lesson._id)) {
+          completedIndices.push(index);
+        }
+      });
+      setCompletedLessons(completedIndices);
+      delete window.completedLessonIds;
     }
-  }, [currentLessonData]);
+  }, [allLessons]);
+  
+
 
   useEffect(() => {
     if (currentLessonData?.isYouTube) {
@@ -192,26 +223,12 @@ const CourseLessonsPage = () => {
     );
   }
 
-  console.log('=== CHECKING CONTENT AVAILABILITY ===');
-  console.log('courseData:', courseData);
-  console.log('courseData.chapters:', courseData?.chapters);
-  console.log('courseData.chapters exists:', !!courseData?.chapters);
-  console.log('courseData.chapters.length:', courseData?.chapters?.length);
-  console.log('courseData.lessons:', courseData?.lessons);
-  console.log('courseData.lessons exists:', !!courseData?.lessons);
-  console.log('courseData.lessons.length:', courseData?.lessons?.length);
-
   const hasChapters = courseData?.chapters && courseData.chapters.length > 0;
   const hasLessons = courseData?.lessons && courseData.lessons.length > 0;
   const shouldShowComingSoon = !courseData.chapters || (courseData.chapters.length === 0 && (!courseData.lessons || courseData.lessons.length === 0));
 
-  console.log('hasChapters:', hasChapters);
-  console.log('hasLessons:', hasLessons);
-  console.log('shouldShowComingSoon:', shouldShowComingSoon);
-
   // Early return for courses without content
   if (shouldShowComingSoon) {
-    console.log('🚨 SHOWING COMING SOON MESSAGE!');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
@@ -227,18 +244,86 @@ const CourseLessonsPage = () => {
     );
   }
 
-  // Enhanced lesson completion functions with toggle capability
-  const markLessonComplete = (lessonIndex) => {
-    if (!completedLessons.includes(lessonIndex)) {
-      setCompletedLessons([...completedLessons, lessonIndex]);
+  // Enhanced lesson completion functions with API integration
+  const markLessonComplete = async (lessonIndex) => {
+    if (completedLessons.includes(lessonIndex)) {
+      return;
+    }
+    
+    const currentLessonData = allLessons[lessonIndex];
+    const lessonId = currentLessonData?._id || currentLessonData?.id;
+    if (!lessonId) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/student/lessons/${lessonId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+         const data = await response.json();
+         setCompletedLessons([...completedLessons, lessonIndex]);
+         
+         setCourseProgress(data.progress || 0);
+         if (data.progress === 100) {
+           setCourseStatus('completed');
+           setCompletionDate(new Date().toISOString());
+         }
+       } else {
+        const error = await response.json();
+        console.error('Failed to mark lesson as complete:', error);
+        alert('Failed to mark lesson as complete. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error marking lesson as complete:', error);
+      alert('Failed to mark lesson as complete. Please try again.');
     }
   };
 
-  const markLessonIncomplete = (lessonIndex) => {
-    setCompletedLessons(completedLessons.filter(index => index !== lessonIndex));
+  const markLessonIncomplete = async (lessonIndex) => {
+    if (!completedLessons.includes(lessonIndex)) return;
+    
+    const currentLessonData = allLessons[lessonIndex];
+    const lessonId = currentLessonData?._id || currentLessonData?.id;
+    if (!lessonId) return;
+    
+    try {
+      const response = await fetch(`/api/student/lessons/${lessonId}/complete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+         const data = await response.json();
+         setCompletedLessons(completedLessons.filter(index => index !== lessonIndex));
+         
+         // Update course progress and status
+         setCourseProgress(data.progress || 0);
+         if (data.progress < 100) {
+           setCourseStatus('active');
+           setCompletionDate(null);
+         }
+         
+
+       } else {
+        const error = await response.json();
+        console.error('Failed to mark lesson as incomplete:', error);
+        alert('Failed to mark lesson as incomplete. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error marking lesson as incomplete:', error);
+      alert('Failed to mark lesson as incomplete. Please try again.');
+    }
   };
 
-  // Toggle function for completion status
   const toggleLessonCompletion = (lessonIndex) => {
     if (completedLessons.includes(lessonIndex)) {
       markLessonIncomplete(lessonIndex);
@@ -415,6 +500,29 @@ const CourseLessonsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Course Completion Banner */}
+      {courseStatus === 'completed' && (
+        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-3 sm:px-4 lg:px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <CheckCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">🎉 Congratulations! Course Completed</h3>
+                <p className="text-sm text-green-100">
+                  You completed this course on {completionDate ? new Date(completionDate).toLocaleDateString() : 'recently'}. 
+                  Progress: {courseProgress}%
+                </p>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center space-x-2 text-sm">
+              <span className="bg-white/20 px-3 py-1 rounded-full">Certificate Available</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="w-full px-3 sm:px-4 lg:px-6 xl:px-8">
@@ -476,8 +584,9 @@ const CourseLessonsPage = () => {
                         ? currentLessonData.videoUrl 
                         : `${window.location.origin}${currentLessonData.videoUrl}`}
                       className="w-full h-full"
-                      onProgress={(state) => {
-                        setCurrentTime(state.playedSeconds);
+                      timestamps={currentLessonData.timestamps || []}
+                      onProgress={(currentTime) => {
+                        setCurrentTime(currentTime);
                       }}
                       handleDuration={(duration) => {
                         setDuration(duration);
@@ -842,8 +951,39 @@ const CourseLessonsPage = () => {
               {/* Lessons Tab Content */}
               {activeTab === 'lessons' && (
                 <>
+                  {/* Course Status Section */}
+                  <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg border">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Course Status</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
+                        <span className="text-gray-600">Overall Progress:</span>
+                        <span className="font-medium text-gray-900">{courseProgress || 0}%</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
+                        <span className="text-gray-600">Status:</span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          courseStatus === 'completed' 
+                            ? 'bg-green-100 text-green-800' 
+                            : courseStatus === 'active'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {courseStatus === 'completed' ? '✅ Completed' : 
+                           courseStatus === 'active' ? '📚 In Progress' : 
+                           courseStatus || 'Enrolled'}
+                        </span>
+                      </div>
+                      {completionDate && (
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className="text-gray-600">Completed:</span>
+                          <span className="text-gray-900">{new Date(completionDate).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="mb-4 sm:mb-6">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 hidden lg:block">Course Progress</h3>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 hidden lg:block">Lesson Progress</h3>
                     <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-2">
                       <span>{completedLessons.length} of {allLessons.length} lessons</span>
                       <span>{Math.round((completedLessons.length / allLessons.length) * 100)}%</span>

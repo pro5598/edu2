@@ -55,7 +55,7 @@ export async function POST(request, { params }) {
     });
     
     const completedCount = enrollment.completedLessons.length;
-    enrollment.progress = Math.round((completedCount / totalLessons) * 100);
+    enrollment.progress = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
     enrollment.lastAccessedAt = new Date();
 
     if (enrollment.progress === 100 && !enrollment.completionDate) {
@@ -121,7 +121,7 @@ export async function DELETE(request, { params }) {
     });
     
     const completedCount = enrollment.completedLessons.length;
-    enrollment.progress = Math.round((completedCount / totalLessons) * 100);
+    enrollment.progress = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
     enrollment.lastAccessedAt = new Date();
 
     if (enrollment.progress < 100) {
