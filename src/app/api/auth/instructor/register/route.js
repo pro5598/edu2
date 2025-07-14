@@ -9,23 +9,22 @@ const validateEmail = (email) => {
 };
 
 const validatePassword = (password) => {
-  return password.length >= 8 && 
-         /[A-Z]/.test(password) && 
-         /[a-z]/.test(password) && 
-         /\d/.test(password) && 
-         /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  return password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /\d/.test(password) &&
+    /[!@#$%^&*(),.?":{}|<>]/.test(password);
 };
 
 export async function POST(request) {
   try {
     await connectDB();
-    
-    const { 
-      username, 
-      email, 
-      password, 
+
+    const {
+      email,
+      password,
       confirmPassword,
-      firstName, 
+      firstName,
       lastName,
       phone,
       bio,
@@ -36,9 +35,9 @@ export async function POST(request) {
       portfolio
     } = await request.json();
 
-    if (!username || !email || !password || !firstName || !lastName || !bio || !expertise) {
+    if (!email || !password || !firstName || !lastName || !bio || !expertise) {
       return NextResponse.json(
-        { error: 'Username, email, password, first name, last name, bio, and expertise are required for instructor registration' },
+        { error: ' email, password, first name, last name, bio, and expertise are required for instructor registration' },
         { status: 400 }
       );
     }
@@ -64,12 +63,6 @@ export async function POST(request) {
       );
     }
 
-    if (username.length < 3) {
-      return NextResponse.json(
-        { error: 'Username must be at least 3 characters long' },
-        { status: 400 }
-      );
-    }
 
     if (bio.length < 50) {
       return NextResponse.json(
@@ -87,28 +80,18 @@ export async function POST(request) {
 
     const existingUser = await User.findOne({
       $or: [
-        { username: username },
         { email: email }
       ]
     });
 
     if (existingUser) {
-      if (existingUser.username === username) {
-        return NextResponse.json(
-          { error: 'Username already exists' },
-          { status: 409 }
-        );
-      }
-      if (existingUser.email === email) {
-        return NextResponse.json(
-          { error: 'Email already exists' },
-          { status: 409 }
-        );
-      }
+      return NextResponse.json(
+        { error: 'Email already exists' },
+        { status: 409 }
+      );
     }
 
     const userData = {
-      username,
       email,
       password,
       firstName,
@@ -137,7 +120,7 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error('Instructor registration error:', error);
-    
+
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
       return NextResponse.json(
@@ -145,7 +128,7 @@ export async function POST(request) {
         { status: 409 }
       );
     }
-    
+
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
       return NextResponse.json(

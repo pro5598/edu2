@@ -62,10 +62,10 @@ const StudentPanelFooter = ({ userProgress = { completed: 42, total: 100 } }) =>
           <div className="space-y-3">
             <h4 className="font-semibold text-slate-800">Explore More</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/courses/web-development" className="text-slate-600 hover:text-blue-600">Web Development</Link></li>
-              <li><Link href="/courses/data-science" className="text-slate-600 hover:text-blue-600">Data Science</Link></li>
-              <li><Link href="/courses/design" className="text-slate-600 hover:text-blue-600">UI/UX Design</Link></li>
-              <li><Link href="/courses" className="text-blue-600 hover:text-blue-700 font-medium">Browse All Courses →</Link></li>
+              <li><Link href="/student/courses" className="text-slate-600 hover:text-blue-600">Web Development</Link></li>
+              <li><Link href="/student/courses" className="text-slate-600 hover:text-blue-600">Data Science</Link></li>
+              <li><Link href="/student/courses" className="text-slate-600 hover:text-blue-600">UI/UX Design</Link></li>
+              <li><Link href="/student/courses" className="text-blue-600 hover:text-blue-700 font-medium">Browse All Courses →</Link></li>
             </ul>
           </div>
 

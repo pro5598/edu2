@@ -27,6 +27,8 @@ import {
   BookOpen,
   Paperclip,
   Send,
+  Eye,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -36,410 +38,194 @@ const CourseLessonsPage = () => {
   const params = useParams();
   const courseId = params.courseId;
   const videoRef = useRef(null);
-  
+
   const [currentLesson, setCurrentLesson] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [activeTab, setActiveTab] = useState('lessons'); // 'lessons', 'assignments', or 'notes'
+  const [activeTab, setActiveTab] = useState('lessons');
   const [completedLessons, setCompletedLessons] = useState([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  
-  // Submit assignment modal state
+
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showViewSubmissionModal, setShowViewSubmissionModal] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [submissionText, setSubmissionText] = useState('');
   const [submissionFiles, setSubmissionFiles] = useState([]);
   const [submissionNotes, setSubmissionNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Course-specific data with verified accessible videos
-  const getCourseData = (courseId) => {
-    const courseTemplates = {
-      "1": {
-        title: "React Front To Back",
-        instructor: "Brad Traversy",
-        description: "Complete React development course from basics to advanced",
-        chapters: [
-          {
-            id: 1,
-            title: "React Fundamentals",
-            lessons: [
-              {
-                id: 1,
-                title: "What is React?",
-                duration: "19:45",
-                description: "Introduction to React library and its core concepts",
-                videoUrl: "https://www.youtube.com/embed/qnrYvsBdtD8",
-                isYouTube: true,
-              },
-              {
-                id: 2,
-                title: "Setting Up React Environment",
-                duration: "25:30",
-                description: "Install Node.js, npm, and create your first React app",
-                videoUrl: "https://www.youtube.com/embed/3OqiKTyH4r0",
-                isYouTube: true,
-              },
-              {
-                id: 3,
-                title: "React Accessibility Best Practices",
-                duration: "57:45",
-                description: "Learn how to build accessible React applications",
-                videoUrl: "https://www.youtube.com/embed/kz9e81oRs3Y",
-                isYouTube: true,
-              }
-            ]
-          },
-          {
-            id: 2,
-            title: "Components and Props",
-            lessons: [
-              {
-                id: 4,
-                title: "React Components Deep Dive",
-                duration: "45:20",
-                description: "Creating and using functional components in React",
-                videoUrl: "https://www.youtube.com/embed/lkFeFzhOEoc",
-                isYouTube: true,
-              },
-              {
-                id: 5,
-                title: "Building Accessible React Apps",
-                duration: "35:15",
-                description: "Advanced techniques for accessible React development",
-                videoUrl: "https://www.youtube.com/embed/-6OUjjhIr7E",
-                isYouTube: true,
-              }
-            ]
+  const [courseData, setCourseData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchCourseData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/courses/${courseId}`);
+
+        if (!response.ok) {
+          throw new Error('Course not found');
+        }
+
+        const data = await response.json();
+        const course = data.course;
+
+        // Fetch student submissions for this course
+        let submissionsMap = {};
+        try {
+          const submissionsResponse = await fetch(`/api/student/submissions?courseId=${courseId}`, {
+            credentials: 'include'
+          });
+          if (submissionsResponse.ok) {
+            const submissionsData = await submissionsResponse.json();
+            submissionsMap = submissionsData.submissions || {};
           }
-        ],
-        assignments: [
-          {
-            id: 1,
-            title: "Build a React Todo App",
-            description: "Create a fully functional todo application using React hooks and local storage. Include add, delete, and toggle functionality.",
-            dueDate: "2024-02-15",
-            type: "project",
-            maxScore: 100,
-            status: "pending",
-            submittedAt: null,
-            score: null,
-            feedback: null,
-            requirements: [
-              "Use React functional components",
-              "Implement useState and useEffect hooks",
-              "Add local storage persistence",
-              "Include proper error handling"
-            ],
-          },
-          {
-            id: 2,
-            title: "React Components Quiz",
-            description: "Test your understanding of React components, props, and state management concepts.",
-            dueDate: "2024-02-20",
-            type: "quiz",
-            maxScore: 50,
-            status: "submitted",
-            submittedAt: "2024-02-18",
-            score: 45,
-            feedback: "Great work! Minor issues with prop validation.",
-            requirements: [
-              "Complete all 20 questions",
-              "Minimum 70% to pass",
-              "Single attempt only"
-            ]
-          },
-          {
-            id: 3,
-            title: "Component Lifecycle Assignment",
-            description: "Create a React application demonstrating component lifecycle methods and hooks.",
-            dueDate: "2024-02-25",
-            type: "assignment",
-            maxScore: 75,
-            status: "graded",
-            submittedAt: "2024-02-23",
-            score: 68,
-            feedback: "Good understanding of lifecycle. Consider optimizing re-renders.",
-            requirements: [
-              "Use both class and functional components",
-              "Demonstrate useEffect cleanup",
-              "Include performance optimizations"
-            ]
-          }
-        ],
-        notes: [
-          {
-            id: 1,
-            title: "Course Syllabus",
-            description: "Complete course outline and grading criteria",
-            fileName: "react-syllabus.pdf",
-            fileSize: "245 KB",
-            uploadedAt: "2024-01-15",
-            downloadUrl: "#",
-            type: "pdf"
-          },
-          {
-            id: 2,
-            title: "React Cheat Sheet",
-            description: "Quick reference for React hooks and components",
-            fileName: "react-cheatsheet.pdf",
-            fileSize: "180 KB",
-            uploadedAt: "2024-01-20",
-            downloadUrl: "#",
-            type: "pdf"
-          },
-          {
-            id: 3,
-            title: "Project Requirements",
-            description: "Detailed requirements for final project",
-            fileName: "project-requirements.docx",
-            fileSize: "95 KB",
-            uploadedAt: "2024-02-01",
-            downloadUrl: "#",
-            type: "doc"
-          },
-          {
-            id: 4,
-            title: "Code Examples",
-            description: "Sample code files for all lessons",
-            fileName: "react-examples.zip",
-            fileSize: "1.2 MB",
-            uploadedAt: "2024-01-25",
-            downloadUrl: "#",
-            type: "zip"
-          }
-        ]
-      },
-      "2": {
-        title: "PHP Beginner to Advanced",
-        instructor: "John Smith",
-        description: "Master PHP programming from basics to advanced concepts",
-        chapters: [
-          {
-            id: 1,
-            title: "PHP Basics",
-            lessons: [
-              {
-                id: 1,
-                title: "Introduction to PHP",
-                duration: "3:15:36",
-                description: "Complete PHP fundamentals and MySQL integration",
-                videoUrl: "https://www.youtube.com/embed/BUCiSSyIGGU",
-                isYouTube: true,
-              },
-              {
-                id: 2,
-                title: "PHP Complete Beginner's Guide",
-                duration: "2:12:51",
-                description: "Learn PHP 8 syntax, variables, functions, and OOP",
-                videoUrl: "https://www.youtube.com/embed/oEgLT1hGX4U",
-                isYouTube: true,
-              },
-              {
-                id: 3,
-                title: "PHP Full Course Tutorial",
-                duration: "7:07:23",
-                description: "Comprehensive PHP tutorial with MySQL database",
-                videoUrl: "https://www.youtube.com/embed/t0syDUSbdfE",
-                isYouTube: true,
-              }
-            ]
-          },
-          {
-            id: 2,
-            title: "Advanced PHP Concepts",
-            lessons: [
-              {
-                id: 4,
-                title: "PHP Expert Level Course",
-                duration: "5:46:54",
-                description: "Advanced PHP concepts, OOP, and web development",
-                videoUrl: "https://www.youtube.com/embed/A5Aiy50mlbI",
-                isYouTube: true,
-              },
-              {
-                id: 5,
-                title: "PHP Complete Tutorial",
-                duration: "5:46:54",
-                description: "PHP full course covering all essential concepts",
-                videoUrl: "https://www.youtube.com/embed/6EukZDFE_Zg",
-                isYouTube: true,
-              }
-            ]
-          }
-        ],
-        assignments: [
-          {
-            id: 1,
-            title: "PHP CRUD Application",
-            description: "Build a complete CRUD application with PHP and MySQL for managing student records.",
-            dueDate: "2024-02-28",
-            type: "project",
-            maxScore: 120,
-            status: "pending",
-            submittedAt: null,
-            score: null,
-            feedback: null,
-            requirements: [
-              "Use PHP 8+ features",
-              "Implement proper SQL injection prevention",
-              "Include form validation",
-              "Add user authentication"
-            ]
-          }
-        ],
-        notes: [
-          {
-            id: 1,
-            title: "PHP Documentation",
-            description: "Official PHP documentation and best practices",
-            fileName: "php-docs.pdf",
-            fileSize: "520 KB",
-            uploadedAt: "2024-01-18",
-            downloadUrl: "#",
-            type: "pdf"
-          },
-          {
-            id: 2,
-            title: "MySQL Integration Guide",
-            description: "Step-by-step guide for PHP-MySQL integration",
-            fileName: "mysql-guide.pdf",
-            fileSize: "380 KB",
-            uploadedAt: "2024-01-22",
-            downloadUrl: "#",
-            type: "pdf"
-          }
-        ]
-      },
-      "3": {
-        title: "Angular Zero to Mastery",
-        instructor: "Sarah Johnson",
-        description: "Complete Angular framework course for modern web development",
-        chapters: [
-          {
-            id: 1,
-            title: "Angular Fundamentals",
-            lessons: [
-              {
-                id: 1,
-                title: "Angular in 90 Minutes",
-                duration: "1:29:08",
-                description: "Complete Angular crash course for beginners",
-                videoUrl: "https://www.youtube.com/embed/oUmVFHlwZsI",
-                isYouTube: true,
-              },
-              {
-                id: 2,
-                title: "Angular Complete Tutorial",
-                duration: "2:20:43",
-                description: "Angular tutorial from beginner to advanced",
-                videoUrl: "https://www.youtube.com/embed/Pd98NIR63cU",
-                isYouTube: true,
-              },
-              {
-                id: 3,
-                title: "Learn Angular A-Z",
-                duration: "4:21:33",
-                description: "Comprehensive Angular course covering all fundamentals",
-                videoUrl: "https://www.youtube.com/embed/JWhRMyyF7nc",
-                isYouTube: true,
-              }
-            ]
-          },
-          {
-            id: 2,
-            title: "Angular Advanced Topics",
-            lessons: [
-              {
-                id: 4,
-                title: "Angular Accessibility Workshop",
-                duration: "45:30",
-                description: "Building accessible Angular applications",
-                videoUrl: "https://www.youtube.com/embed/juf_HneUbMk",
-                isYouTube: true,
-              },
-              {
-                id: 5,
-                title: "Angular Best Practices",
-                duration: "35:20",
-                description: "Advanced Angular patterns and best practices",
-                videoUrl: "https://www.youtube.com/embed/oUmVFHlwZsI?start=3600",
-                isYouTube: true,
-              }
-            ]
-          }
-        ],
-        assignments: [
-          {
-            id: 1,
-            title: "Angular Todo Application",
-            description: "Create a todo application using Angular with routing, services, and reactive forms.",
-            dueDate: "2024-03-05",
-            type: "project",
-            maxScore: 100,
-            status: "pending",
-            submittedAt: null,
-            score: null,
-            feedback: null,
-            requirements: [
-              "Use Angular CLI",
-              "Implement routing",
-              "Create reusable components",
-              "Use reactive forms"
-            ]
-          }
-        ],
-        notes: [
-          {
-            id: 1,
-            title: "Angular Style Guide",
-            description: "Official Angular coding style guide and conventions",
-            fileName: "angular-style-guide.pdf",
-            fileSize: "420 KB",
-            uploadedAt: "2024-01-20",
-            downloadUrl: "#",
-            type: "pdf"
-          },
-          {
-            id: 2,
-            title: "TypeScript Fundamentals",
-            description: "Essential TypeScript concepts for Angular development",
-            fileName: "typescript-fundamentals.pdf",
-            fileSize: "290 KB",
-            uploadedAt: "2024-01-25",
-            downloadUrl: "#",
-            type: "pdf"
-          }
-        ]
+        } catch (submissionError) {
+          console.error('Error fetching submissions:', submissionError);
+        }
+
+        // Add submission status to assignments
+        const assignmentsWithStatus = (data.assignments || []).map(assignment => {
+          const submission = submissionsMap[assignment._id];
+          return {
+            ...assignment,
+            submissionStatus: submission ? submission.status : null,
+            score: submission ? submission.score : null,
+            feedback: submission ? submission.feedback : null,
+            submittedAt: submission ? submission.submittedAt : null,
+            submissionText: submission ? submission.submissionText : '',
+            submissionFiles: submission ? submission.submissionFiles : [],
+            submissionNotes: submission ? submission.submissionNotes : ''
+          };
+        });
+
+        const formattedCourseData = {
+          title: course.title,
+          instructor: course.instructor.name,
+          description: course.description,
+          chapters: course.chapters || [],
+          assignments: assignmentsWithStatus,
+          notes: data.courseNotes
+        };
+
+        console.log('Formatted course data:', formattedCourseData);
+        console.log('Formatted chapters:', formattedCourseData.chapters);
+        console.log('Formatted chapters length:', formattedCourseData.chapters.length);
+
+        setCourseData(formattedCourseData);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching course data:', err);
+        setError(err.message);
+        setCourseData(null);
+      } finally {
+        setLoading(false);
       }
     };
 
-    return courseTemplates[courseId] || {
-      title: "Course Not Found",
-      instructor: "Unknown",
-      description: "Course content not available",
-      chapters: [],
-      assignments: [],
-      notes: []
-    };
-  };
+    if (courseId) {
+      fetchCourseData();
+    }
+  }, [courseId]);
 
-  const courseData = getCourseData(courseId);
-  const allLessons = courseData.chapters.flatMap(chapter => chapter.lessons);
+  const allLessons = courseData ?
+    (courseData.chapters && courseData.chapters.length > 0
+      ? courseData.chapters.flatMap(chapter => chapter.lessons || [])
+      : courseData.lessons || []) : [];
+
+  console.log('=== ALL LESSONS CALCULATION ===');
+  console.log('allLessons:', allLessons);
+  console.log('allLessons.length:', allLessons.length);
   const currentLessonData = allLessons[currentLesson];
+  
+  // Debug logging
+  useEffect(() => {
+    if (currentLessonData) {
+      console.log('Current lesson data:', currentLessonData);
+      console.log('Video URL:', currentLessonData.videoUrl);
+      if (currentLessonData.videoUrl) {
+        const fullUrl = currentLessonData.videoUrl.startsWith('http') 
+          ? currentLessonData.videoUrl 
+          : `${window.location.origin}${currentLessonData.videoUrl}`;
+        console.log('Full video URL:', fullUrl);
+      }
+    }
+  }, [currentLessonData]);
 
-  // Video event handlers (simplified for YouTube)
   useEffect(() => {
     if (currentLessonData?.isYouTube) {
       setIsPlaying(false);
       setCurrentTime(0);
       setDuration(0);
-      return;
     }
-  }, [currentLesson]);
+  }, [currentLesson, currentLessonData?.isYouTube]);
+
+  // Early returns for loading and error states
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading course...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !courseData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Course Not Found</h1>
+          <p className="text-gray-600 mb-6 text-sm sm:text-base">{error || 'The course you\'re looking for doesn\'t exist.'}</p>
+          <Link href="/student/courses">
+            <button className="bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-blue-700 text-sm sm:text-base">
+              Back to Courses
+            </button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('=== CHECKING CONTENT AVAILABILITY ===');
+  console.log('courseData:', courseData);
+  console.log('courseData.chapters:', courseData?.chapters);
+  console.log('courseData.chapters exists:', !!courseData?.chapters);
+  console.log('courseData.chapters.length:', courseData?.chapters?.length);
+  console.log('courseData.lessons:', courseData?.lessons);
+  console.log('courseData.lessons exists:', !!courseData?.lessons);
+  console.log('courseData.lessons.length:', courseData?.lessons?.length);
+
+  const hasChapters = courseData?.chapters && courseData.chapters.length > 0;
+  const hasLessons = courseData?.lessons && courseData.lessons.length > 0;
+  const shouldShowComingSoon = !courseData.chapters || (courseData.chapters.length === 0 && (!courseData.lessons || courseData.lessons.length === 0));
+
+  console.log('hasChapters:', hasChapters);
+  console.log('hasLessons:', hasLessons);
+  console.log('shouldShowComingSoon:', shouldShowComingSoon);
+
+  // Early return for courses without content
+  if (shouldShowComingSoon) {
+    console.log('🚨 SHOWING COMING SOON MESSAGE!');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Course Content Coming Soon</h1>
+          <p className="text-gray-600 mb-6 text-sm sm:text-base">This course is available but content is being prepared. Please check back later.</p>
+          <Link href="/student/courses">
+            <button className="bg-blue-600 text-white px-4 sm:px-6 py-2 sm:px-3 rounded-lg hover:bg-blue-700 text-sm sm:text-base">
+              Back to Courses
+            </button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Enhanced lesson completion functions with toggle capability
   const markLessonComplete = (lessonIndex) => {
@@ -539,6 +325,35 @@ const CourseLessonsPage = () => {
     setSubmissionNotes('');
   };
 
+  const openViewSubmissionModal = (assignment) => {
+    setSelectedAssignment(assignment);
+    setShowViewSubmissionModal(true);
+  };
+
+  const closeViewSubmissionModal = () => {
+    setShowViewSubmissionModal(false);
+    setSelectedAssignment(null);
+  };
+
+  const downloadAssignmentDocument = (assignment) => {
+    if (assignment.attachments && assignment.attachments.length > 0) {
+      assignment.attachments.forEach(attachment => {
+        const link = document.createElement('a');
+        link.href = attachment.url;
+        link.download = attachment.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+    } else {
+      alert('No document attached to download');
+    }
+  };
+
+  const isOverdue = (dueDate) => {
+    return new Date() > new Date(dueDate);
+  };
+
   // Handle file upload
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
@@ -553,44 +368,50 @@ const CourseLessonsPage = () => {
   // Handle assignment submission
   const handleSubmitAssignment = async () => {
     setIsSubmitting(true);
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const formData = new FormData();
+      formData.append('submissionText', submissionText);
+      formData.append('submissionNotes', submissionNotes);
       
-      // Here you would typically send the submission to your backend
-      console.log('Submitting assignment:', {
-        assignmentId: selectedAssignment.id,
-        submissionText,
-        submissionFiles,
-        submissionNotes
+      // Add files to form data
+      submissionFiles.forEach((file) => {
+        formData.append('submissionFiles', file);
       });
-      
+
+      const response = await fetch(`/api/student/assignments/${selectedAssignment._id}/submit`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit assignment');
+      }
+
+      // Update the assignment status in the local state
+      setCourseData(prevData => ({
+        ...prevData,
+        assignments: prevData.assignments.map(assignment => 
+          assignment._id === selectedAssignment._id 
+            ? { ...assignment, submissionStatus: 'submitted' }
+            : assignment
+        )
+      }));
+
       alert('Assignment submitted successfully!');
       closeSubmitModal();
     } catch (error) {
-      alert('Error submitting assignment. Please try again.');
+      console.error('Submission error:', error);
+      alert(error.message || 'Error submitting assignment. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle case where course doesn't exist
-  if (courseData.chapters.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Course Not Found</h1>
-          <p className="text-gray-600 mb-6 text-sm sm:text-base">The course you're looking for doesn't exist.</p>
-          <Link href="/courses">
-            <button className="bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-blue-700 text-sm sm:text-base">
-              Back to Courses
-            </button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -599,7 +420,7 @@ const CourseLessonsPage = () => {
         <div className="w-full px-3 sm:px-4 lg:px-6 xl:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
-              <Link href="/courses">
+              <Link href="/student/courses">
                 <button className="flex items-center space-x-1 sm:space-x-2 text-gray-600 hover:text-gray-900 flex-shrink-0">
                   <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline text-sm sm:text-base">Back to Courses</span>
@@ -611,12 +432,12 @@ const CourseLessonsPage = () => {
                 {courseData.title}
               </h1>
             </div>
-            
+
             <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
               <div className="text-xs sm:text-sm text-gray-600 hidden xs:block">
-                {activeTab === 'lessons' ? `${currentLesson + 1}/${allLessons.length}` : 
-                 activeTab === 'assignments' ? `${courseData.assignments?.length || 0} assignments` :
-                 `${courseData.notes?.length || 0} notes`}
+                {activeTab === 'lessons' ? `${currentLesson + 1}/${allLessons.length}` :
+                  activeTab === 'assignments' ? `${courseData.assignments?.length || 0} assignments` :
+                    `${courseData.notes?.length || 0} notes`}
               </div>
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
@@ -651,7 +472,9 @@ const CourseLessonsPage = () => {
                 <div className="aspect-video relative">
                   {currentLessonData?.videoUrl ? (
                     <VideoPlayer
-                      url={currentLessonData.videoUrl}
+                      url={currentLessonData.videoUrl.startsWith('http') 
+                        ? currentLessonData.videoUrl 
+                        : `${window.location.origin}${currentLessonData.videoUrl}`}
                       className="w-full h-full"
                       onProgress={(state) => {
                         setCurrentTime(state.playedSeconds);
@@ -685,7 +508,7 @@ const CourseLessonsPage = () => {
                   <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
                     {currentLessonData?.description}
                   </p>
-                  
+
                   <div className="flex items-center space-x-4 sm:space-x-6 text-xs sm:text-sm text-gray-500 mb-4 sm:mb-6">
                     <div className="flex items-center space-x-1 sm:space-x-2">
                       <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -697,11 +520,10 @@ const CourseLessonsPage = () => {
                   <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4 sm:mb-6">
                     <button
                       onClick={() => toggleLessonCompletion(currentLesson)}
-                      className={`flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                        completedLessons.includes(currentLesson)
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
+                      className={`flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-medium transition-colors text-sm sm:text-base ${completedLessons.includes(currentLesson)
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
                     >
                       {completedLessons.includes(currentLesson) ? (
                         <CheckCircle className="w-4 h-4" />
@@ -731,24 +553,22 @@ const CourseLessonsPage = () => {
                   <button
                     onClick={goToPreviousLesson}
                     disabled={currentLesson === 0}
-                    className={`flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-sm sm:text-base ${
-                      currentLesson === 0
-                        ? 'text-gray-400 cursor-not-allowed bg-gray-100'
-                        : 'text-gray-700 hover:bg-gray-100 border border-gray-300'
-                    }`}
+                    className={`flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-sm sm:text-base ${currentLesson === 0
+                      ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                      : 'text-gray-700 hover:bg-gray-100 border border-gray-300'
+                      }`}
                   >
                     <ChevronLeft className="w-4 h-4" />
                     <span>Previous Lesson</span>
                   </button>
-                  
+
                   <button
                     onClick={goToNextLesson}
                     disabled={currentLesson === allLessons.length - 1}
-                    className={`flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm sm:text-base ${
-                      currentLesson === allLessons.length - 1
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
+                    className={`flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm sm:text-base ${currentLesson === allLessons.length - 1
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                   >
                     <span>Next Lesson</span>
                     <ChevronRight className="w-4 h-4" />
@@ -771,9 +591,9 @@ const CourseLessonsPage = () => {
 
                 {courseData.assignments && courseData.assignments.length > 0 ? (
                   <div className="space-y-4">
-                    {courseData.assignments.map((assignment) => (
+                    {courseData.assignments.map((assignment, index) => (
                       <div
-                        key={assignment.id}
+                        key={index}
                         className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-all duration-200"
                       >
                         <div className="flex items-start space-x-3">
@@ -787,7 +607,7 @@ const CourseLessonsPage = () => {
                             <p className="text-sm text-gray-800 mb-3">
                               {assignment.description}
                             </p>
-                            
+
                             {/* Assignment Details */}
                             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-700 mb-4">
                               <div className="flex items-center space-x-1">
@@ -836,9 +656,9 @@ const CourseLessonsPage = () => {
                             )}
 
                             {/* Action Buttons */}
-                            <div className="flex flex-col sm:flex-row gap-2">
-                              {assignment.status === 'pending' && (
-                                <button 
+                            <div className="flex flex-wrap gap-2">
+                              {assignment.submissionStatus === 'Not Submitted' && !isOverdue(assignment.dueDate) && (
+                                <button
                                   onClick={() => openSubmitModal(assignment)}
                                   className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                                 >
@@ -846,16 +666,32 @@ const CourseLessonsPage = () => {
                                   <span>Submit Assignment</span>
                                 </button>
                               )}
-                              {assignment.status === 'submitted' && (
-                                <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm">
-                                  <Download className="w-4 h-4" />
-                                  <span>Download Submission</span>
+                              
+                              {(assignment.submissionStatus === 'Submitted - Awaiting Grade' || assignment.submissionStatus === 'Graded') && (
+                                <button
+                                  onClick={() => openViewSubmissionModal(assignment)}
+                                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  <span>View Submission</span>
                                 </button>
                               )}
-                              {assignment.status === 'graded' && (
-                                <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
-                                  <Download className="w-4 h-4" />
-                                  <span>View Results</span>
+                              
+                              <button
+                                onClick={() => downloadAssignmentDocument(assignment)}
+                                className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                              >
+                                <Download className="w-4 h-4" />
+                                <span>Download</span>
+                              </button>
+                              
+                              {assignment.feedback && (
+                                <button
+                                  onClick={() => alert(assignment.feedback)}
+                                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                                >
+                                  <MessageSquare className="w-4 h-4" />
+                                  <span>Feedback</span>
                                 </button>
                               )}
                             </div>
@@ -894,9 +730,9 @@ const CourseLessonsPage = () => {
 
                 {courseData.notes && courseData.notes.length > 0 ? (
                   <div className="space-y-4">
-                    {courseData.notes.map((note) => (
+                    {courseData.notes.map((note, index) => (
                       <div
-                        key={note.id}
+                        key={index}
                         className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-all duration-200"
                       >
                         <div className="flex items-start space-x-3">
@@ -910,7 +746,7 @@ const CourseLessonsPage = () => {
                             <p className="text-sm text-gray-800 mb-3">
                               {note.description}
                             </p>
-                            
+
                             {/* File Details */}
                             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-700 mb-4">
                               <div className="flex items-center space-x-1">
@@ -928,7 +764,7 @@ const CourseLessonsPage = () => {
                             </div>
 
                             {/* Download Button */}
-                            <button 
+                            <button
                               onClick={() => window.open(note.downloadUrl, '_blank')}
                               className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                             >
@@ -958,9 +794,8 @@ const CourseLessonsPage = () => {
           </div>
 
           {/* Enhanced Sidebar with Tabs */}
-          <div className={`${
-            showSidebar ? 'translate-x-0' : 'translate-x-full'
-          } lg:translate-x-0 fixed lg:sticky top-14 sm:top-16 right-0 w-full max-w-sm lg:w-80 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] bg-white border-l border-gray-200 overflow-y-auto z-50 lg:z-auto transition-transform duration-300 ease-in-out`}>
+          <div className={`${showSidebar ? 'translate-x-0' : 'translate-x-full'
+            } lg:translate-x-0 fixed lg:sticky top-14 sm:top-16 right-0 w-full max-w-sm lg:w-80 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] bg-white border-l border-gray-200 overflow-y-auto z-50 lg:z-auto transition-transform duration-300 ease-in-out`}>
             <div className="p-3 sm:p-4 lg:p-6">
               {/* Mobile Close Button */}
               <div className="flex items-center justify-between mb-4 lg:hidden">
@@ -977,31 +812,28 @@ const CourseLessonsPage = () => {
               <div className="flex space-x-1 mb-6 bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setActiveTab('lessons')}
-                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === 'lessons'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'lessons'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
                 >
                   Lessons
                 </button>
                 <button
                   onClick={() => setActiveTab('assignments')}
-                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === 'assignments'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'assignments'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
                 >
                   Assignments
                 </button>
                 <button
                   onClick={() => setActiveTab('notes')}
-                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === 'notes'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'notes'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
                 >
                   Notes
                 </button>
@@ -1017,7 +849,7 @@ const CourseLessonsPage = () => {
                       <span>{Math.round((completedLessons.length / allLessons.length) * 100)}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2">
-                      <div 
+                      <div
                         className="bg-blue-600 h-1.5 sm:h-2 rounded-full transition-all duration-300"
                         style={{ width: `${(completedLessons.length / allLessons.length) * 100}%` }}
                       ></div>
@@ -1039,16 +871,15 @@ const CourseLessonsPage = () => {
                               const globalLessonIndex = courseData.chapters
                                 .slice(0, chapterIndex)
                                 .reduce((acc, ch) => acc + ch.lessons.length, 0) + lessonIndex;
-                              
+
                               const isCompleted = completedLessons.includes(globalLessonIndex);
                               const isCurrent = globalLessonIndex === currentLesson;
-                              
+
                               return (
                                 <div
                                   key={lesson.id}
-                                  className={`group relative ${
-                                    isCurrent ? 'bg-blue-50 border-r-2 border-blue-600' : ''
-                                  }`}
+                                  className={`group relative ${isCurrent ? 'bg-blue-50 border-r-2 border-blue-600' : ''
+                                    }`}
                                 >
                                   <button
                                     onClick={() => selectLesson(globalLessonIndex)}
@@ -1061,9 +892,8 @@ const CourseLessonsPage = () => {
                                         <Circle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
                                       )}
                                       <div className="flex-1 min-w-0">
-                                        <p className={`font-medium truncate text-sm sm:text-base ${
-                                          isCurrent ? 'text-blue-600' : 'text-gray-900'
-                                        }`}>
+                                        <p className={`font-medium truncate text-sm sm:text-base ${isCurrent ? 'text-blue-600' : 'text-gray-900'
+                                          }`}>
                                           {lesson.title}
                                         </p>
                                         <p className="text-xs sm:text-sm text-gray-500">{lesson.duration}</p>
@@ -1073,18 +903,17 @@ const CourseLessonsPage = () => {
                                       )}
                                     </div>
                                   </button>
-                                  
+
                                   {/* Quick completion toggle button in sidebar */}
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       toggleLessonCompletion(globalLessonIndex);
                                     }}
-                                    className={`absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-xs ${
-                                      isCompleted 
-                                        ? 'text-orange-600 hover:bg-orange-50' 
-                                        : 'text-green-600 hover:bg-green-50'
-                                    }`}
+                                    className={`absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-xs ${isCompleted
+                                      ? 'text-orange-600 hover:bg-orange-50'
+                                      : 'text-green-600 hover:bg-green-50'
+                                      }`}
                                     title={isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
                                   >
                                     {isCompleted ? (
@@ -1110,24 +939,102 @@ const CourseLessonsPage = () => {
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Course Assignments</h3>
                   {courseData.assignments && courseData.assignments.length > 0 ? (
                     <div className="space-y-3">
-                      {courseData.assignments.map((assignment) => (
-                        <div key={assignment.id} className="border border-gray-200 rounded-lg p-3">
-                          <div className="flex items-start space-x-2 mb-2">
-                            <div className="flex-shrink-0 p-1 bg-blue-100 rounded">
-                              {getTypeIcon(assignment.type)}
+                      {courseData.assignments.map((assignment, index) => {
+                        const isSubmitted = assignment.submissionStatus === 'submitted';
+                        const isGraded = assignment.submissionStatus === 'graded';
+                        const isOverdue = new Date(assignment.dueDate) < new Date() && !isSubmitted;
+                        
+                        return (
+                          <div key={index} className="border border-gray-200 rounded-lg p-3">
+                            <div className="flex items-start space-x-2 mb-2">
+                              <div className="flex-shrink-0 p-1 bg-blue-100 rounded">
+                                {getTypeIcon(assignment.type)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-gray-900 text-sm truncate">{assignment.title}</h4>
+                                <p className="text-xs text-gray-600 mt-1 line-clamp-2">{assignment.description}</p>
+                                <div className="flex flex-wrap gap-2 mt-2 text-xs">
+                                  <span className="text-gray-600">Due: {formatDate(assignment.dueDate)}</span>
+                                  <span className="text-gray-600">Max Score: {assignment.maxScore} points</span>
+                                  {isOverdue && (
+                                    <span className="text-red-600 font-medium">Overdue</span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-gray-900 text-sm truncate">{assignment.title}</h4>
-                              <p className="text-xs text-gray-600 mt-1">Due: {formatDate(assignment.dueDate)}</p>
+                            
+                            {/* Submission Status */}
+                            <div className="mb-3">
+                              {isGraded ? (
+                                <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg">
+                                  <div className="flex items-center space-x-2">
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                    <span className="text-sm text-green-800">Graded</span>
+                                  </div>
+                                  <div className="text-sm font-medium text-green-800">
+                                    Score: {assignment.score || 0}/{assignment.maxScore}
+                                  </div>
+                                </div>
+                              ) : isSubmitted ? (
+                                <div className="flex items-center space-x-2 p-2 bg-blue-50 rounded-lg">
+                                  <Clock className="w-4 h-4 text-blue-600" />
+                                  <span className="text-sm text-blue-800">Submitted - Awaiting Grade</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-2 p-2 bg-yellow-50 rounded-lg">
+                                  <AlertCircle className="w-4 h-4 text-yellow-600" />
+                                  <span className="text-sm text-yellow-800">
+                                    {isOverdue ? 'Not Submitted - Overdue' : 'Not Submitted'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex gap-2">
+                              {!isSubmitted && !isOverdue && (
+                                <button
+                                  onClick={() => openSubmitModal(assignment)}
+                                  className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-colors"
+                                >
+                                  <Upload className="w-3 h-3" />
+                                  <span>Submit Assignment</span>
+                                </button>
+                              )}
+                              
+                              {isSubmitted && (
+                                <button
+                                  onClick={() => openSubmitModal(assignment)}
+                                  className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-gray-600 text-white rounded-lg text-xs hover:bg-gray-700 transition-colors"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>View Submission</span>
+                                </button>
+                              )}
+                              
+                              {assignment.attachments && assignment.attachments.length > 0 && (
+                                <button
+                                  onClick={() => window.open(assignment.attachments[0].url, '_blank')}
+                                  className="flex items-center justify-center space-x-1 px-3 py-2 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 transition-colors"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>Download</span>
+                                </button>
+                              )}
+                              
+                              {isGraded && assignment.feedback && (
+                                <button
+                                  onClick={() => alert(assignment.feedback)}
+                                  className="flex items-center justify-center space-x-1 px-3 py-2 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 transition-colors"
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  <span>Feedback</span>
+                                </button>
+                              )}
                             </div>
                           </div>
-                          {assignment.score !== null && (
-                            <div className="mt-2 text-xs text-gray-600">
-                              Score: {assignment.score}/{assignment.maxScore}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-8">
@@ -1144,8 +1051,8 @@ const CourseLessonsPage = () => {
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Course Notes</h3>
                   {courseData.notes && courseData.notes.length > 0 ? (
                     <div className="space-y-3">
-                      {courseData.notes.map((note) => (
-                        <div key={note.id} className="border border-gray-200 rounded-lg p-3">
+                      {courseData.notes.map((note, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-3">
                           <div className="flex items-start space-x-2 mb-2">
                             <div className="flex-shrink-0 p-1 bg-green-100 rounded">
                               {getFileIcon(note.type)}
@@ -1156,7 +1063,7 @@ const CourseLessonsPage = () => {
                               <p className="text-xs text-gray-500">{note.fileSize}</p>
                             </div>
                           </div>
-                          <button 
+                          <button
                             onClick={() => window.open(note.downloadUrl, '_blank')}
                             className="w-full flex items-center justify-center space-x-1 px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors"
                           >
@@ -1236,7 +1143,7 @@ const CourseLessonsPage = () => {
                   value={submissionText}
                   onChange={(e) => setSubmissionText(e.target.value)}
                   rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500 text-black"
                   placeholder="Enter your submission text here..."
                 />
               </div>
@@ -1301,7 +1208,7 @@ const CourseLessonsPage = () => {
                   value={submissionNotes}
                   onChange={(e) => setSubmissionNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500 text-black"
                   placeholder="Any additional notes for your instructor..."
                 />
               </div>
@@ -1332,6 +1239,136 @@ const CourseLessonsPage = () => {
                     <span>Submit Assignment</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Submission Modal */}
+      {showViewSubmissionModal && selectedAssignment && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">View Submission</h3>
+                  <p className="text-sm text-gray-600 mt-1">{selectedAssignment.title}</p>
+                </div>
+                <button
+                  onClick={closeViewSubmissionModal}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Assignment Details */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h4 className="font-medium text-blue-900 mb-2">Assignment Details</h4>
+                <p className="text-sm text-blue-800 mb-3">{selectedAssignment.description}</p>
+                <div className="flex flex-wrap gap-4 text-xs text-blue-700">
+                  <span>Due: {formatDate(selectedAssignment.dueDate)}</span>
+                  <span>Max Score: {selectedAssignment.maxScore} points</span>
+                  <span>Type: {selectedAssignment.type}</span>
+                  {selectedAssignment.submittedAt && (
+                    <span>Submitted: {formatDate(selectedAssignment.submittedAt)}</span>
+                  )}
+                  {selectedAssignment.score !== null && (
+                    <span>Score: {selectedAssignment.score}/{selectedAssignment.maxScore}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Submission Status */}
+              <div className="bg-green-50 rounded-lg p-4">
+                <h4 className="font-medium text-green-900 mb-2">Submission Status</h4>
+                <div className="flex items-center space-x-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    selectedAssignment.submissionStatus === 'Graded'
+                      ? 'bg-green-100 text-green-800'
+                      : selectedAssignment.submissionStatus === 'Submitted - Awaiting Grade'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {selectedAssignment.submissionStatus}
+                  </span>
+                </div>
+              </div>
+
+              {/* Submitted Text */}
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Submitted Text
+                </label>
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 min-h-[150px] whitespace-pre-wrap">
+                  {selectedAssignment.submissionText || 'No text submission provided'}
+                </div>
+              </div>
+
+              {/* Submitted Files */}
+              {selectedAssignment.submissionFiles && selectedAssignment.submissionFiles.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Submitted Files
+                  </label>
+                  <div className="space-y-2">
+                    {selectedAssignment.submissionFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                        <div className="flex items-center space-x-2">
+                          <Paperclip className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm text-gray-700">{file.filename || file.name}</span>
+                          <span className="text-xs text-gray-500">
+                            ({file.size ? (file.size / 1024 / 1024).toFixed(2) : 'Unknown'} MB)
+                          </span>
+                        </div>
+                        {file.url && (
+                          <button
+                            onClick={() => window.open(file.url, '_blank')}
+                            className="flex items-center space-x-1 px-2 py-1 text-blue-600 hover:bg-blue-50 rounded text-xs"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Download</span>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Submitted Notes */}
+              {selectedAssignment.submissionNotes && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Additional Notes
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 min-h-[100px] whitespace-pre-wrap">
+                    {selectedAssignment.submissionNotes}
+                  </div>
+                </div>
+              )}
+
+              {/* Feedback */}
+              {selectedAssignment.feedback && (
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <h4 className="font-medium text-purple-900 mb-2">Instructor Feedback</h4>
+                  <p className="text-sm text-purple-800 whitespace-pre-wrap">{selectedAssignment.feedback}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={closeViewSubmissionModal}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

@@ -15,7 +15,8 @@ import {
   Play,
   Link as LinkIcon,
   Eye,
-  EyeOff
+  EyeOff,
+  Clock
 } from 'lucide-react';
 import VideoPlayer from '../../../../../components/VideoPlayer';
 import Link from 'next/link';
@@ -72,7 +73,8 @@ const EditCoursePage = () => {
                 ...lesson,
                 title: lesson.title || '',
                 description: lesson.description || '',
-                duration: lesson.duration || ''
+                duration: lesson.duration || '',
+                timestamps: lesson.timestamps || []
               }))
             })),
             notes: [],
@@ -230,7 +232,8 @@ const EditCoursePage = () => {
           ...result.lesson,
           title: result.lesson.title || '',
           description: result.lesson.description || '',
-          duration: result.lesson.duration || ''
+          duration: result.lesson.duration || '',
+          timestamps: result.lesson.timestamps || []
         };
         setCourseData(prev => ({
           ...prev,
@@ -301,7 +304,7 @@ const EditCoursePage = () => {
     setCurrentVideoLesson(null);
   };
 
-  const handleVideoUpload = async (file) => {
+  const handleVideoUpload = async (file, lessonData) => {
     if (currentVideoLesson) {
       const { chapterIndex, lessonIndex } = currentVideoLesson;
       
@@ -319,6 +322,9 @@ const EditCoursePage = () => {
           handleLessonChange(chapterIndex, lessonIndex, 'videoFile', file);
           handleLessonChange(chapterIndex, lessonIndex, 'videoType', 'upload');
           handleLessonChange(chapterIndex, lessonIndex, 'videoUrl', result.videoUrl);
+          if (lessonData && lessonData.timestamps) {
+            handleLessonChange(chapterIndex, lessonIndex, 'timestamps', lessonData.timestamps);
+          }
         } else {
           alert('Failed to upload video');
         }
@@ -329,12 +335,15 @@ const EditCoursePage = () => {
     }
   };
 
-  const handleVideoLink = (url, type) => {
+  const handleVideoLink = (url, type, lessonData) => {
     if (currentVideoLesson) {
       const { chapterIndex, lessonIndex } = currentVideoLesson;
       handleLessonChange(chapterIndex, lessonIndex, 'videoUrl', url);
       handleLessonChange(chapterIndex, lessonIndex, 'videoType', type);
       handleLessonChange(chapterIndex, lessonIndex, 'videoFile', null);
+      if (lessonData && lessonData.timestamps) {
+        handleLessonChange(chapterIndex, lessonIndex, 'timestamps', lessonData.timestamps);
+      }
     }
   };
 
@@ -515,7 +524,8 @@ const EditCoursePage = () => {
                 description: lesson.description,
                 duration: lesson.duration,
                 videoUrl: lesson.videoUrl,
-                videoType: lesson.videoType
+                videoType: lesson.videoType,
+                timestamps: lesson.timestamps || []
               }));
               
               // Add video file if it exists
@@ -914,6 +924,30 @@ const EditCoursePage = () => {
                                              lesson.videoType === 'upload' ? 'Uploaded' : 'Added'}
                                     </span>
                                   </div>
+                                  
+                                  {lesson.timestamps && lesson.timestamps.length > 0 && (
+                                    <div className="mt-2 pt-2 border-t border-green-200">
+                                      <div className="flex items-center space-x-2 text-xs text-green-700 mb-2">
+                                        <Clock className="w-3 h-3" />
+                                        <span>{lesson.timestamps.length} timestamp{lesson.timestamps.length !== 1 ? 's' : ''}</span>
+                                      </div>
+                                      <div className="space-y-1 max-h-20 overflow-y-auto">
+                                        {lesson.timestamps.slice(0, 3).map((timestamp, idx) => (
+                                          <div key={idx} className="flex items-center space-x-2 text-xs text-green-600">
+                                            <span className="font-mono bg-green-100 px-1 rounded">
+                                              {Math.floor(timestamp.time / 60)}:{(timestamp.time % 60).toString().padStart(2, '0')}
+                                            </span>
+                                            <span className="truncate">{timestamp.title}</span>
+                                          </div>
+                                        ))}
+                                        {lesson.timestamps.length > 3 && (
+                                          <div className="text-xs text-green-500">
+                                            +{lesson.timestamps.length - 3} more...
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1032,27 +1066,154 @@ const VideoModal = ({ lesson, onClose, onVideoUpload, onVideoLink }) => {
   const [videoType, setVideoType] = useState(lesson.videoType || 'upload');
   const [videoUrl, setVideoUrl] = useState(lesson.videoUrl || '');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [timestamps, setTimestamps] = useState(lesson.timestamps || []);
+  const [newTimestamp, setNewTimestamp] = useState({ time: '', title: '', description: '' });
+
+  // Initialize preview URL if lesson already has a video
+  useEffect(() => {
+    if (lesson.videoUrl && videoType === 'upload') {
+      setPreviewUrl(lesson.videoUrl);
+    }
+  }, [lesson.videoUrl, videoType]);
+
+  // Clean up blob URL when component unmounts or file changes
+  useEffect(() => {
+    return () => {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  // Clean up preview when video type changes
+  useEffect(() => {
+    if (videoType !== 'upload') {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setPreviewUrl(null);
+      setSelectedFile(null);
+    }
+  }, [videoType, previewUrl]);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type
+      const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/avi', 'video/mov', 'video/wmv'];
+      if (!validTypes.includes(file.type)) {
+        alert('Please select a valid video file (MP4, WebM, OGG, AVI, MOV, WMV)');
+        return;
+      }
+      
+      // Validate file size (500MB limit)
+      const maxSize = 500 * 1024 * 1024; // 500MB
+      if (file.size > maxSize) {
+        alert('File size must be less than 500MB');
+        return;
+      }
+      
+      // Clean up previous blob URL
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      
+      // Create new blob URL for preview
+      const newPreviewUrl = URL.createObjectURL(file);
       setSelectedFile(file);
+      setPreviewUrl(newPreviewUrl);
+      
+      console.log('File selected:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        previewUrl: newPreviewUrl
+      });
     }
   };
 
+  const addTimestamp = () => {
+    if (newTimestamp.time && newTimestamp.title) {
+      const timeInSeconds = convertTimeToSeconds(newTimestamp.time);
+      
+      // Validate that we got a valid time
+      if (timeInSeconds === 0 && newTimestamp.time !== '0' && newTimestamp.time !== '00:00' && newTimestamp.time !== '0:00') {
+        alert('Please enter a valid time format (e.g., 1:30, 01:30, or 1:30:45)');
+        return;
+      }
+      
+      const timestamp = {
+        time: timeInSeconds,
+        title: newTimestamp.title.trim(),
+        description: newTimestamp.description.trim()
+      };
+      
+      setTimestamps([...timestamps, timestamp].sort((a, b) => a.time - b.time));
+      setNewTimestamp({ time: '', title: '', description: '' });
+    }
+  };
+
+  const removeTimestamp = (index) => {
+    setTimestamps(timestamps.filter((_, i) => i !== index));
+  };
+
+  const convertTimeToSeconds = (timeStr) => {
+    if (!timeStr || typeof timeStr !== 'string') {
+      return 0;
+    }
+    
+    const parts = timeStr.trim().split(':');
+    
+    if (parts.length === 2) {
+      // Format: mm:ss
+      const minutes = parseInt(parts[0], 10) || 0;
+      const seconds = parseInt(parts[1], 10) || 0;
+      return minutes * 60 + seconds;
+    } else if (parts.length === 3) {
+      // Format: hh:mm:ss
+      const hours = parseInt(parts[0], 10) || 0;
+      const minutes = parseInt(parts[1], 10) || 0;
+      const seconds = parseInt(parts[2], 10) || 0;
+      return hours * 3600 + minutes * 60 + seconds;
+    } else if (parts.length === 1) {
+      // Format: just seconds
+      const seconds = parseInt(parts[0], 10) || 0;
+      return seconds;
+    }
+    
+    return 0;
+  };
+
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleSave = () => {
+    const lessonData = {
+      videoType,
+      videoUrl: videoType !== 'upload' ? videoUrl : '',
+      timestamps
+    };
+    
     if (videoType === 'upload' && selectedFile) {
-      onVideoUpload(selectedFile);
+      onVideoUpload(selectedFile, lessonData);
     } else if ((videoType === 'youtube' || videoType === 'link') && videoUrl) {
-      onVideoLink(videoUrl, videoType);
+      onVideoLink(videoUrl, videoType, lessonData);
     }
     onClose();
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
-        <div className="p-6 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-gray-900">Manage Video</h3>
             <button
@@ -1064,7 +1225,7 @@ const VideoModal = ({ lesson, onClose, onVideoUpload, onVideoLink }) => {
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-3">
               Video Source
@@ -1141,7 +1302,7 @@ const VideoModal = ({ lesson, onClose, onVideoUpload, onVideoLink }) => {
                 type="url"
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-600 text-gray-900"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-black text-gray-900"
                 placeholder={videoType === 'youtube' ? 'https://www.youtube.com/watch?v=...' : 'https://example.com/video.mp4'}
               />
               
@@ -1163,22 +1324,106 @@ const VideoModal = ({ lesson, onClose, onVideoUpload, onVideoLink }) => {
           )}
           
           {/* Preview for uploaded video */}
-          {videoType === 'upload' && (selectedFile || lesson.videoUrl) && (
+          {videoType === 'upload' && (previewUrl || lesson.videoUrl) && (
             <div>
               <label className="block text-sm font-medium text-gray-900 mb-2">
                 Preview
               </label>
               <div className="aspect-video bg-black rounded-lg overflow-hidden">
                 <VideoPlayer
-                  url={selectedFile ? URL.createObjectURL(selectedFile) : lesson.videoUrl}
+                  url={previewUrl || lesson.videoUrl}
                   className="w-full h-full"
                 />
               </div>
             </div>
           )}
+
+          {/* Timeline Management */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-3">
+              Video Timestamps
+            </label>
+            
+            {/* Add New Timestamp */}
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Add New Timestamp</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Time (e.g., 1:30, 01:30, 1:30:45)"
+                    value={newTimestamp.time}
+                    onChange={(e) => setNewTimestamp({...newTimestamp, time: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm placeholder-black text-black"
+                    pattern="^([0-9]{1,2}:)?[0-9]{1,2}:[0-9]{2}$|^[0-9]+$"
+                    title="Enter time in format mm:ss, hh:mm:ss, or just seconds"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Title"
+                    value={newTimestamp.title}
+                    onChange={(e) => setNewTimestamp({...newTimestamp, title: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm placeholder-black text-black"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Description (optional)"
+                    value={newTimestamp.description}
+                    onChange={(e) => setNewTimestamp({...newTimestamp, description: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm placeholder-black text-black"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={addTimestamp}
+                disabled={!newTimestamp.time || !newTimestamp.title}
+                className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                Add Timestamp
+              </button>
+            </div>
+
+            {/* Existing Timestamps */}
+            {timestamps.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Current Timestamps</h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {timestamps.map((timestamp, index) => (
+                    <div key={index} className="flex items-center justify-between bg-white p-3 border border-gray-200 rounded-lg">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm font-medium text-blue-600">
+                            {formatTime(timestamp.time)}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {timestamp.title}
+                          </span>
+                        </div>
+                        {timestamp.description && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            {timestamp.description}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => removeTimestamp(index)}
+                        className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+        <div className="p-6 border-t border-gray-200 flex justify-end space-x-3 flex-shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"

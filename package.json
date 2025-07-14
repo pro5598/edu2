@@ -9,7 +9,10 @@
     "start": "next start",
     "lint": "next lint",
     "init-db": "node src/scripts/init-db.js",
-    "reset-db": "node src/scripts/reset-db.js"
+    "reset-db": "node src/scripts/reset-db.js",
+    "check-data": "node src/scripts/check-all-data.js",
+    "seed-courses": "node src/scripts/seed-courses.js",
+    "seed-complete": "node src/scripts/seed-complete-data.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

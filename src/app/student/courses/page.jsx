@@ -257,7 +257,7 @@ const StudentCoursesPage = () => {
 
                    {/* Action Buttons */}
                    <div className="space-y-3">
-                     <Link href={`/courses/${course.id}/lessons`} className="block">
+                     <Link href={`/student/courses/${course.id}/lessons`} className="block">
                        <button className="w-full bg-blue-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium hover:bg-blue-700 transition-colors text-sm sm:text-base flex items-center justify-center space-x-2">
                          <Play className="w-4 h-4" />
                          <span>{enrollment.progress > 0 ? 'Continue Learning' : 'Start Learning'}</span>
@@ -388,7 +388,7 @@ const StudentCoursesPage = () => {
             <p className="text-sm sm:text-base text-gray-700 mb-4">
               You haven't enrolled in any courses yet.
             </p>
-            <Link href="/courses">
+            <Link href="/student/courses">
               <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
                 Browse Courses
               </button>

@@ -1,4 +1,3 @@
-// app/admin/layout.jsx
 "use client";
 import React, { useState, useEffect } from "react";
 import {
@@ -18,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "../../../contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AdminLayout = ({ children }) => {
   const pathname = usePathname();
@@ -175,7 +174,7 @@ const AdminLayout = ({ children }) => {
       {/* Main Content Container */}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-5">
         <div className="flex flex-col lg:flex-row min-h-[600px] relative">
-          
+
           {/* Sidebar Overlay for Mobile */}
           {isSidebarOpen && (
             <div
@@ -210,11 +209,10 @@ const AdminLayout = ({ children }) => {
                     <Link href={item.href} key={item.id} passHref>
                       <button
                         onClick={closeSidebar}
-                        className={`w-full flex items-center space-x-3 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-left transition-all duration-200 border-r-4 text-sm sm:text-base ${
-                          isCurrent
+                        className={`w-full flex items-center space-x-3 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-left transition-all duration-200 border-r-4 text-sm sm:text-base ${isCurrent
                             ? "bg-red-50 text-red-700 border-red-500 font-semibold"
                             : "text-slate-700 hover:bg-slate-100 border-transparent hover:text-slate-900"
-                        }`}
+                          }`}
                       >
                         <Icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                         <span className="truncate">{item.label}</span>
@@ -231,7 +229,7 @@ const AdminLayout = ({ children }) => {
                 <nav className="space-y-2">
                   {userActions.map((item) => {
                     const Icon = item.icon;
-                    
+
                     if (item.action === "logout") {
                       return (
                         <button
@@ -244,7 +242,7 @@ const AdminLayout = ({ children }) => {
                         </button>
                       );
                     }
-                    
+
                     return (
                       <Link href={item.href} key={item.id} passHref>
                         <button

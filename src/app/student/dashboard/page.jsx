@@ -155,7 +155,7 @@ const StudentDashboardPage = () => {
                 <Play className="w-5 h-5 text-blue-600" />
                 <span>Continue Learning</span>
               </h2>
-              <Link href="/courses" className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center space-x-1">
+              <Link href="/student/courses" className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center space-x-1">
                 <span>View All</span>
                 <ChevronRight className="w-4 h-4" />
               </Link>
@@ -189,7 +189,7 @@ const StudentDashboardPage = () => {
                         </div>
                       </div>
                     </div>
-                    <Link href={`/courses/${course.id}/lessons`}>
+                    <Link href={`/student/courses/${course.id}/lessons`}>
                       <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
                         Continue
                       </button>

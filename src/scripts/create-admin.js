@@ -9,7 +9,7 @@ async function createAdmin() {
 
     const adminData = {
       username: 'admin',
-      email: 'admin@edu.com',
+      email: 'admin@gmail.com',
       password: 'admin@123',
       firstName: 'System',
       lastName: 'Administrator',

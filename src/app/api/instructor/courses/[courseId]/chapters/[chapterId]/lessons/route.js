@@ -93,7 +93,7 @@ export async function POST(request, { params }) {
     const order = lastLesson ? lastLesson.order + 1 : 1;
 
     const lesson = new Lesson({
-      title: lessonData.title || '',
+      title: lessonData.title || 'New Lesson',
       description: lessonData.description || '',
       duration: lessonData.duration || 0,
       videoUrl: lessonData.videoUrl || '',
@@ -102,7 +102,9 @@ export async function POST(request, { params }) {
       course: courseId,
       chapter: chapterId,
       order,
-      content: lessonData.content || lessonData.description || lessonData.title || 'New lesson content'
+      content: lessonData.content || lessonData.description || `Content for ${lessonData.title || 'New Lesson'}`,
+      timestamps: lessonData.timestamps || [],
+      type: lessonData.videoUrl || videoPath ? 'video' : 'text'
     });
 
     await lesson.save();
@@ -113,6 +115,15 @@ export async function POST(request, { params }) {
     }, { status: 201 });
   } catch (error) {
     console.error('Create lesson error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return NextResponse.json(
+        { error: `Validation failed: ${validationErrors.join(', ')}` },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

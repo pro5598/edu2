@@ -438,7 +438,9 @@ const InstructorMyCoursesPage = () => {
                 description: lesson.description || '',
                 duration: lesson.duration || '00:00',
                 videoUrl: lesson.videoUrl || '',
-                videoType: lesson.videoType || 'upload'
+                videoType: lesson.videoType || 'upload',
+                content: lesson.content || lesson.description || `Content for ${lesson.title}`,
+                timestamps: lesson.timestamps || []
               }));
               lessonFormData.append('videoFile', lesson.videoFile);
               
@@ -448,7 +450,9 @@ const InstructorMyCoursesPage = () => {
               });
               
               if (!lessonResponse.ok) {
-                console.error('Failed to create lesson with video:', lesson.title);
+                const errorData = await lessonResponse.json().catch(() => ({}));
+                console.error('Failed to create lesson with video:', lesson.title, errorData);
+                alert(`Failed to create lesson "${lesson.title}": ${errorData.error || 'Unknown error'}`);
               }
             } else {
               // Use JSON for lessons without video files
@@ -462,12 +466,16 @@ const InstructorMyCoursesPage = () => {
                   description: lesson.description || '',
                   duration: lesson.duration || '00:00',
                   videoUrl: lesson.videoUrl || '',
-                  videoType: lesson.videoType || 'upload'
+                  videoType: lesson.videoType || 'upload',
+                  content: lesson.content || lesson.description || `Content for ${lesson.title}`,
+                  timestamps: lesson.timestamps || []
                 })
               });
               
               if (!lessonResponse.ok) {
-                console.error('Failed to create lesson:', lesson.title);
+                const errorData = await lessonResponse.json().catch(() => ({}));
+                console.error('Failed to create lesson:', lesson.title, errorData);
+                alert(`Failed to create lesson "${lesson.title}": ${errorData.error || 'Unknown error'}`);
               }
             }
           }
