@@ -113,11 +113,6 @@ const CartPage = () => {
     setIsProcessing(true);
     
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Please log in to complete your purchase');
-      }
-
       // Prepare contact info and billing address from form data
       const contactInfo = {
         firstName: formData.firstName,
@@ -136,9 +131,9 @@ const CartPage = () => {
       const response = await fetch('/api/student/purchase', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify({
           paymentMethod: 'credit_card',
           contactInfo,
@@ -439,7 +434,7 @@ const CartPage = () => {
                       value={formData.firstName}
                       onChange={handleInputChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                     />
                   </div>
                   <div>
@@ -452,7 +447,7 @@ const CartPage = () => {
                       value={formData.lastName}
                       onChange={handleInputChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                     />
                   </div>
                   <div>
@@ -465,7 +460,7 @@ const CartPage = () => {
                       value={formData.email}
                       onChange={handleInputChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                     />
                   </div>
                   <div>
@@ -478,7 +473,7 @@ const CartPage = () => {
                       value={formData.phone}
                       onChange={handleInputChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                     />
                   </div>
                 </div>
@@ -499,7 +494,7 @@ const CartPage = () => {
                       onChange={handleInputChange}
                       placeholder="1234 5678 9012 3456"
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -514,7 +509,7 @@ const CartPage = () => {
                         onChange={handleInputChange}
                         placeholder="MM/YY"
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                       />
                     </div>
                     <div>
@@ -528,7 +523,7 @@ const CartPage = () => {
                         onChange={handleInputChange}
                         placeholder="123"
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                       />
                     </div>
                   </div>
@@ -542,7 +537,7 @@ const CartPage = () => {
                       value={formData.cardName}
                       onChange={handleInputChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                     />
                   </div>
                 </div>

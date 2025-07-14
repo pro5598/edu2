@@ -1,6 +1,6 @@
 // app/admin/layout.jsx
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -18,22 +18,46 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../../contexts/AuthContext";
 
 const AdminLayout = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  const profileData = {
+  const [profileData, setProfileData] = useState({
     firstName: "Admin",
     lastName: "User",
     username: "admin",
     email: "admin@example.com",
     title: "System Administrator",
     bio: "Managing the learning platform and ensuring smooth operations.",
-  };
+  });
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (user) {
+        try {
+          const response = await fetch('/api/admin/profile')
+          if (response.ok) {
+            const data = await response.json()
+            setProfileData({
+              firstName: data.firstName || "Admin",
+              lastName: data.lastName || "User",
+              username: data.username || "admin",
+              email: data.email || "admin@example.com",
+              title: data.title || "System Administrator",
+              bio: data.bio || "Managing the learning platform and ensuring smooth operations.",
+            })
+          }
+        } catch (error) {
+          console.error('Error fetching profile data:', error)
+        }
+      }
+    }
+
+    fetchProfileData()
+  }, [user])
 
   const navigationItems = [
     {
@@ -125,7 +149,7 @@ const AdminLayout = ({ children }) => {
                   {profileData.title}
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
-                  {profileData.firstName} {profileData.lastName}
+                  {profileData.firstName}{profileData.lastName ? ` ${profileData.lastName}` : ''}
                 </h1>
                 <div className="text-sm text-gray-700 mt-1">
                   Admin Dashboard
@@ -175,7 +199,7 @@ const AdminLayout = ({ children }) => {
           >
             <div className="p-4 sm:p-6 h-full overflow-y-auto">
               <div className="text-slate-700 text-sm mb-6 mt-12 lg:mt-0">
-                WELCOME, {profileData.firstName}!
+                WELCOME, {profileData.firstName || 'Admin'}!
               </div>
 
               <nav className="space-y-2">

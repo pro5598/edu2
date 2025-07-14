@@ -15,17 +15,12 @@ export default function StudentOrderHistoryPage() {
       setLoading(true);
       setError('');
       
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('Please log in to view your order history');
-        return;
-      }
-
       const response = await fetch('/api/student/orders', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -165,9 +160,9 @@ export default function StudentOrderHistoryPage() {
                 )}
               </div>
             ) : (
-              filteredOrders.map((order) => (
+              filteredOrders.map((order, index) => (
                 <div
-                  key={order._id}
+                  key={index}
                   className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -208,9 +203,9 @@ export default function StudentOrderHistoryPage() {
                       Courses Purchased ({order.itemCount})
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {order.items.map((item) => (
+                      {order.items.map((item, index) => (
                         <div
-                          key={item._id}
+                          key={index}
                           className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg"
                         >
                           <img

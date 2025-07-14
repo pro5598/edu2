@@ -26,7 +26,7 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const cart = await Cart.findOne({ user: user.id });
+    const cart = await Cart.findOne({ user: user._id });
     
     if (!cart) {
       return NextResponse.json(
@@ -36,7 +36,7 @@ export async function DELETE(request, { params }) {
     }
 
     const itemIndex = cart.items.findIndex(
-      item => item.course.toString() === courseId && item.isActive
+      item => item.course.toString() === courseId
     );
 
     if (itemIndex === -1) {
@@ -46,8 +46,7 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    cart.items[itemIndex].isActive = false;
-    cart.totalItems = Math.max(0, cart.totalItems - 1);
+    cart.items.splice(itemIndex, 1);
     cart.lastUpdated = new Date();
     
     await cart.save();

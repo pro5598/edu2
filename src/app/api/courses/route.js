@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import connectDB from '../../../lib/database';
-import { Course, User, Review } from '../../../models';
-import { requireInstructor } from '../../../middleware/auth';
+import { Course, User, Review, Enrollment } from '../../../models';
+import { requireInstructor, authenticateToken } from '../../../middleware/auth';
 
 export async function GET(request) {
   try {
     await connectDB();
+    
+    // Check if user is authenticated (optional for browsing)
+    const authResult = await authenticateToken(request);
+    const userId = authResult.user?._id;
     
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
@@ -60,6 +64,17 @@ export async function GET(request) {
       Course.countDocuments(query)
     ]);
 
+    // Get user's enrollments if authenticated
+    let userEnrollments = [];
+    if (userId) {
+      userEnrollments = await Enrollment.find({
+        student: userId,
+        isActive: true
+      }).select('course').lean();
+    }
+    
+    const enrolledCourseIds = userEnrollments.map(enrollment => enrollment.course.toString());
+    
     const coursesWithStats = courses.map(course => ({
       ...course,
       instructor: course.instructor ? `${course.instructor.firstName} ${course.instructor.lastName}` : 'Unknown',
@@ -68,7 +83,8 @@ export async function GET(request) {
       students: course.enrollmentCount || 0,
       image: course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop',
       lessons: Math.floor(Math.random() * 50) + 20,
-      inWishlist: false
+      inWishlist: false,
+      isEnrolled: enrolledCourseIds.includes(course._id.toString())
     }));
 
     return NextResponse.json({

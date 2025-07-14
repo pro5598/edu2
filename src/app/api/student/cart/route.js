@@ -4,6 +4,7 @@ import { authenticateToken } from '../../../../middleware/auth';
 import Cart from '../../../../models/Cart';
 import Course from '../../../../models/Course';
 import User from '../../../../models/User';
+import Enrollment from '../../../../models/Enrollment';
 
 export async function GET(request) {
   try {
@@ -19,7 +20,7 @@ export async function GET(request) {
     
     const user = authResult.user;
 
-    const cart = await Cart.findOne({ user: user.id })
+    const cart = await Cart.findOne({ user: user._id })
       .populate({
         path: 'items.course',
         populate: {
@@ -36,7 +37,27 @@ export async function GET(request) {
       });
     }
 
-    const cartData = cart.items.map(item => ({
+    // Get user's enrollments to filter out enrolled courses from cart
+    const userEnrollments = await Enrollment.find({
+      student: user._id,
+      isActive: true
+    }).select('course').lean();
+    
+    const enrolledCourseIds = userEnrollments.map(enrollment => enrollment.course.toString());
+    
+    // Filter out enrolled courses from cart items
+    const validCartItems = cart.items.filter(item => 
+      !enrolledCourseIds.includes(item.course._id.toString())
+    );
+    
+    // If cart items were filtered out, update the cart
+    if (validCartItems.length !== cart.items.length) {
+      cart.items = validCartItems;
+      cart.totalAmount = validCartItems.reduce((sum, item) => sum + parseFloat(item.price), 0);
+      await cart.save();
+    }
+
+    const cartData = validCartItems.map(item => ({
       id: item._id,
       course: {
         ...item.course.toObject(),
@@ -91,11 +112,25 @@ export async function POST(request) {
       );
     }
 
-    let cart = await Cart.findOne({ user: user.id });
+    // Check if user is already enrolled in this course
+    const existingEnrollment = await Enrollment.findOne({
+      student: user._id,
+      course: courseId,
+      isActive: true
+    });
+
+    if (existingEnrollment) {
+      return NextResponse.json(
+        { error: 'Already enrolled in this course' },
+        { status: 409 }
+      );
+    }
+
+    let cart = await Cart.findOne({ user: user._id });
     
     if (!cart) {
       cart = new Cart({
-        user: user.id,
+        user: user._id,
         items: []
       });
     }

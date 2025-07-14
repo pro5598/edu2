@@ -56,6 +56,19 @@ export async function POST(request) {
       );
     }
 
+    const existingActiveReview = await Review.findOne({
+      student: user.id,
+      course: courseId,
+      isActive: true
+    });
+
+    if (existingActiveReview) {
+      return NextResponse.json(
+        { error: 'You have already rated this course' },
+        { status: 409 }
+      );
+    }
+
     enrollment.rating = rating;
     enrollment.review = review || '';
     await enrollment.save();

@@ -54,17 +54,12 @@ const NotificationsPage = () => {
       setLoading(true);
       setError("");
       
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('Please log in to view your notifications');
-        return;
-      }
-
       const response = await fetch('/api/student/notifications', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -107,15 +102,12 @@ const NotificationsPage = () => {
 
   const markAsRead = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
       const response = await fetch(`/api/student/notifications/${id}/read`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -134,15 +126,12 @@ const NotificationsPage = () => {
 
   const markAsUnread = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
       const response = await fetch(`/api/student/notifications/${id}/unread`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -161,15 +150,12 @@ const NotificationsPage = () => {
 
   const deleteNotification = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
       const response = await fetch(`/api/student/notifications/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -184,15 +170,12 @@ const NotificationsPage = () => {
 
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
       const response = await fetch('/api/student/notifications/mark-all-read', {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -207,15 +190,12 @@ const NotificationsPage = () => {
 
   const clearAllNotifications = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
       const response = await fetch('/api/student/notifications/clear-all', {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include'
       });
 
       if (response.ok) {

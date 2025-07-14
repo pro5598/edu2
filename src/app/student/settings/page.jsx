@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { useAuth } from "../../../contexts/AuthContext";
 import {
   User,
   Shield,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 
 const StudentSettingsPage = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("account");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -79,7 +81,7 @@ const StudentSettingsPage = () => {
             </label>
             <input
               type="text"
-              defaultValue="Emily"
+              defaultValue={user?.firstName || ""}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder:text-slate-500 bg-white font-medium"
             />
           </div>
@@ -89,7 +91,7 @@ const StudentSettingsPage = () => {
             </label>
             <input
               type="text"
-              defaultValue="Hannah"
+              defaultValue={user?.lastName || ""}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder:text-slate-500 bg-white font-medium"
             />
           </div>
@@ -99,7 +101,7 @@ const StudentSettingsPage = () => {
             </label>
             <input
               type="email"
-              defaultValue="emily.hannah@example.com"
+              defaultValue={user?.email || ""}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder:text-slate-500 bg-white font-medium"
             />
           </div>
@@ -109,7 +111,7 @@ const StudentSettingsPage = () => {
             </label>
             <input
               type="tel"
-              defaultValue="+1-202-555-0174"
+              defaultValue={user?.phone || ""}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder:text-slate-500 bg-white font-medium"
             />
           </div>

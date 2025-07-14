@@ -337,13 +337,23 @@ const BrowseCoursesPage = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <button
-                          onClick={() => handleAddToCart(course._id)}
-                          className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 text-sm"
-                        >
-                          <ShoppingCart className="w-4 h-4" />
-                          <span>Add to Cart</span>
-                        </button>
+                        {course.isEnrolled ? (
+                          <button
+                            onClick={() => window.location.href = `/student/courses/${course._id}/lessons`}
+                            className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 text-sm"
+                          >
+                            <Play className="w-4 h-4" />
+                            <span>Go to Course</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleAddToCart(course._id)}
+                            className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 text-sm"
+                          >
+                            <ShoppingCart className="w-4 h-4" />
+                            <span>Add to Cart</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -29,7 +29,7 @@ export async function POST(request) {
     } = await request.json();
 
     // Get user's cart
-    const cart = await Cart.findOne({ user: user.id })
+    const cart = await Cart.findOne({ user: user._id })
       .populate({
         path: 'items.course',
         populate: {
@@ -62,7 +62,7 @@ export async function POST(request) {
 
     // Check if user is already enrolled in any of these courses
     const existingEnrollments = await Enrollment.find({
-      student: user.id,
+      student: user._id,
       course: { $in: courseIds },
       isActive: true
     });
@@ -87,7 +87,7 @@ export async function POST(request) {
     }));
 
     const order = new Order({
-      student: user.id,
+      student: user._id,
       items: orderItems,
       totalAmount,
       paymentMethod,
@@ -101,7 +101,7 @@ export async function POST(request) {
 
     // Create enrollments
     const enrollmentData = cart.items.map(item => ({
-      student: user.id,
+      student: user._id,
       course: item.course._id,
       paymentAmount: item.price,
       paymentMethod: paymentMethod,
@@ -113,16 +113,16 @@ export async function POST(request) {
 
     const enrollments = await Enrollment.insertMany(enrollmentData);
 
-    // Create payment records
+    // Create payment records (after order is saved to get orderNumber)
     const paymentData = cart.items.map(item => ({
       transactionId: `TXN-${order.orderNumber}-${item.course._id}`,
-      student: user.id,
+      student: user._id,
       course: item.course._id,
       instructor: item.course.instructor._id,
       totalAmount: item.price,
       status: 'completed',
       paymentMethod: paymentMethod,
-      paymentGateway: 'stripe', // Default gateway
+      paymentGateway: 'stripe',
       processedAt: new Date()
     }));
 
@@ -136,7 +136,7 @@ export async function POST(request) {
     }
 
     // Get student information for notifications
-    const student = await User.findById(user.id);
+    const student = await User.findById(user._id);
     
     // Create enrollment notifications for instructors
     for (const item of cart.items) {
@@ -162,7 +162,7 @@ export async function POST(request) {
 
     // Clear the cart
     await Cart.findOneAndUpdate(
-      { user: user.id },
+      { user: user._id },
       { $set: { items: [], totalAmount: 0 } }
     );
 

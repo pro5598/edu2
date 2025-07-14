@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   User,
@@ -25,16 +25,41 @@ const StudentLayout = ({ children }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [profileData, setProfileData] = useState({
+    firstName: "Student",
+    lastName: "",
+    username: "student.user",
+    email: "student@example.com",
+    phone: "+1-202-555-0174",
+    registrationDate: "February 25, 2025",
+    bio: "I'm a student passionate about learning and growing through online education.",
+  });
 
-  const profileData = {
-    firstName: user?.firstName || "Emily",
-    lastName: user?.lastName || "Hannah",
-    username: user?.username || "emily.hannah",
-    email: user?.email || "emily.hannah@example.com",
-    phone: user?.phone || "+1-202-555-0174",
-    registrationDate: user?.registrationDate || "February 25, 2025",
-    bio: user?.bio || "I'm the Front-End Developer for #Rainbow IT in Bangladesh, OR. I have serious passion for UI effects, animations and creating intuitive, dynamic user experiences.",
-  };
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (user) {
+        try {
+          const response = await fetch('/api/student/profile');
+          if (response.ok) {
+            const data = await response.json();
+            setProfileData({
+              firstName: data.firstName || "Student",
+              lastName: data.lastName || "",
+              username: data.username || "student.user",
+              email: data.email || "student@example.com",
+              phone: data.phone || "+1-202-555-0174",
+              registrationDate: data.registrationDate || "February 25, 2025",
+              bio: data.bio || "I'm a student passionate about learning and growing through online education.",
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching profile data:', error);
+        }
+      }
+    };
+
+    fetchProfileData();
+  }, [user]);
 
   const navigationItems = [
     {
@@ -139,7 +164,7 @@ const StudentLayout = ({ children }) => {
               </div>
               <div className="flex-1">
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
-                  {profileData.firstName} {profileData.lastName}
+                  {profileData.firstName}{profileData.lastName ? ` ${profileData.lastName}` : ''}
                 </h1>
               </div>
             </div>
@@ -186,7 +211,7 @@ const StudentLayout = ({ children }) => {
           >
             <div className="p-4 sm:p-6 h-full overflow-y-auto">
               <div className="text-slate-500 text-sm mb-6 mt-12 lg:mt-0">
-                WELCOME, {profileData.firstName}!
+                WELCOME, {profileData.firstName || 'Student'}!
               </div>
 
               <nav className="space-y-2">

@@ -28,7 +28,6 @@ const orderItemSchema = new mongoose.Schema({
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
-    required: true,
     unique: true
   },
   student: {
@@ -75,13 +74,19 @@ const orderSchema = new mongoose.Schema({
 });
 
 orderSchema.index({ student: 1 });
-orderSchema.index({ orderNumber: 1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ student: 1, createdAt: -1 });
 
-orderSchema.pre('save', function(next) {
+orderSchema.pre('validate', function(next) {
   if (this.isNew && !this.orderNumber) {
+    this.orderNumber = 'ORD-' + Date.now().toString().slice(-8) + Math.random().toString(36).substr(2, 4).toUpperCase();
+  }
+  next();
+});
+
+orderSchema.pre('save', function(next) {
+  if (!this.orderNumber) {
     this.orderNumber = 'ORD-' + Date.now().toString().slice(-8) + Math.random().toString(36).substr(2, 4).toUpperCase();
   }
   next();
