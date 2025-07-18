@@ -1,6 +1,17 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Star, Users, Heart, ShoppingCart, Trash2, Filter, Search, BookOpen, Clock, DollarSign } from "lucide-react";
+import {
+  Star,
+  Users,
+  Heart,
+  ShoppingCart,
+  Trash2,
+  Filter,
+  Search,
+  BookOpen,
+  Clock,
+  DollarSign,
+} from "lucide-react";
 
 const StudentWishlistPage = () => {
   const [wishlistData, setWishlistData] = useState([]);
@@ -12,67 +23,68 @@ const StudentWishlistPage = () => {
   }, []);
 
   const fetchWishlist = async () => {
-     try {
-       setLoading(true);
-       const response = await fetch('/api/student/wishlist', {
-         credentials: 'include'
-       });
-       if (!response.ok) {
-         throw new Error('Failed to fetch wishlist');
-       }
-       const data = await response.json();
-       setWishlistData(data.wishlistItems || []);
-     } catch (err) {
-       setError(err.message);
-     } finally {
-       setLoading(false);
-     }
-   };
+    try {
+      setLoading(true);
+      const response = await fetch("/api/student/wishlist", {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch wishlist");
+      }
+      const data = await response.json();
+      setWishlistData(data.wishlistItems || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleRemoveFromWishlist = async (courseId) => {
-     try {
-       const response = await fetch('/api/student/wishlist', {
-         method: 'POST',
-         headers: {
-           'Content-Type': 'application/json',
-         },
-         credentials: 'include',
-         body: JSON.stringify({ courseId, action: 'remove' }),
-       });
-       if (!response.ok) {
-         throw new Error('Failed to remove from wishlist');
-       }
-       setWishlistData(prev => prev.filter(item => item.course._id !== courseId));
-     } catch (err) {
-       console.error('Error removing from wishlist:', err);
-     }
-   };
+    try {
+      const response = await fetch("/api/student/wishlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ courseId, action: "remove" }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to remove from wishlist");
+      }
+      setWishlistData((prev) =>
+        prev.filter((item) => item.course._id !== courseId)
+      );
+    } catch (err) {
+      console.error("Error removing from wishlist:", err);
+    }
+  };
 
   const handleAddToCart = async (courseId) => {
-     try {
-       const response = await fetch('/api/cart', {
-         method: 'POST',
-         headers: {
-           'Content-Type': 'application/json',
-         },
-         credentials: 'include',
-         body: JSON.stringify({ courseId }),
-       });
-       if (!response.ok) {
-         throw new Error('Failed to add to cart');
-       }
-       console.log('Added to cart successfully');
-       // Optionally remove from wishlist after adding to cart
-       // await handleRemoveFromWishlist(courseId);
-     } catch (err) {
-       console.error('Error adding to cart:', err);
-     }
-   };
+    try {
+      const response = await fetch("/api/cart", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ courseId }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to add to cart");
+      }
+      console.log("Added to cart successfully");
+      // Optionally remove from wishlist after adding to cart
+      // await handleRemoveFromWishlist(courseId);
+    } catch (err) {
+      console.error("Error adding to cart:", err);
+    }
+  };
 
   return (
     <div className="w-full p-3 sm:p-4 lg:p-6">
       <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-        
         {/* Header */}
         <div className="px-4 sm:px-6 py-4 sm:py-6 border-b border-slate-200 bg-gradient-to-r from-pink-50 to-purple-50">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
@@ -97,7 +109,7 @@ const StudentWishlistPage = () => {
           ) : error ? (
             <div className="text-center py-12">
               <p className="text-red-600 mb-4">{error}</p>
-              <button 
+              <button
                 onClick={fetchWishlist}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -106,23 +118,25 @@ const StudentWishlistPage = () => {
             </div>
           ) : wishlistData.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {wishlistData.map((item) => (
+              {wishlistData.map((item, index) => (
                 <div
-                  key={item.id}
+                  key={index}
                   className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 group border border-slate-100 max-w-sm mx-auto w-full"
                 >
                   {/* Course Image - Fixed Height */}
                   <div className="relative h-48">
                     <img
-                      src={item.course.thumbnail || '/api/placeholder/300/200'}
+                      src={item.course.thumbnail || "/api/placeholder/300/200"}
                       alt={item.course.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    
+
                     {/* Remove Button Only */}
                     <div className="absolute top-3 right-3">
                       <button
-                        onClick={() => handleRemoveFromWishlist(item.course._id)}
+                        onClick={() =>
+                          handleRemoveFromWishlist(item.course._id)
+                        }
                         className="p-2 bg-white/90 text-gray-600 hover:bg-white hover:text-red-500 rounded-full transition-colors"
                         title="Remove from wishlist"
                       >
@@ -148,7 +162,8 @@ const StudentWishlistPage = () => {
                         ))}
                       </div>
                       <span className="text-sm text-gray-600 ml-2">
-                        {item.course.rating || 0} ({item.course.reviewCount || 0})
+                        {item.course.rating || 0} (
+                        {item.course.reviewCount || 0})
                       </span>
                     </div>
 
@@ -166,10 +181,10 @@ const StudentWishlistPage = () => {
                     <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
                       <div className="flex items-center space-x-1">
                         <Clock className="w-4 h-4" />
-                        <span>{item.course.duration || 'N/A'}</span>
+                        <span>{item.course.duration || "N/A"}</span>
                       </div>
                       <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                        {item.course.level || 'All Levels'}
+                        {item.course.level || "All Levels"}
                       </span>
                     </div>
 
@@ -179,11 +194,12 @@ const StudentWishlistPage = () => {
                         <span className="text-xl font-bold text-gray-800">
                           ${item.course.price || 0}
                         </span>
-                        {item.course.originalPrice && item.course.originalPrice > item.course.price && (
-                          <span className="text-sm line-through text-gray-500">
-                            ${item.course.originalPrice}
-                          </span>
-                        )}
+                        {item.course.originalPrice &&
+                          item.course.originalPrice > item.course.price && (
+                            <span className="text-sm line-through text-gray-500">
+                              ${item.course.originalPrice}
+                            </span>
+                          )}
                       </div>
                     </div>
 
@@ -223,16 +239,29 @@ const StudentWishlistPage = () => {
           <div className="px-4 sm:px-6 py-4 sm:py-6 bg-slate-50 border-t border-slate-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
               <div className="text-sm text-slate-600">
-                Total value: <span className="font-semibold text-slate-800">
-                  ${wishlistData.reduce((sum, item) => sum + (item.course.originalPrice || item.course.price || 0), 0).toFixed(2)}
-                </span>
-                {" "}
+                Total value:{" "}
+                <span className="font-semibold text-slate-800">
+                  $
+                  {wishlistData
+                    .reduce(
+                      (sum, item) =>
+                        sum +
+                        (item.course.originalPrice || item.course.price || 0),
+                      0
+                    )
+                    .toFixed(2)}
+                </span>{" "}
                 <span className="text-green-600">
-                  (Save ${wishlistData.reduce((sum, item) => {
-                    const original = item.course.originalPrice || item.course.price || 0;
-                    const current = item.course.price || 0;
-                    return sum + Math.max(0, original - current);
-                  }, 0).toFixed(2)})
+                  (Save $
+                  {wishlistData
+                    .reduce((sum, item) => {
+                      const original =
+                        item.course.originalPrice || item.course.price || 0;
+                      const current = item.course.price || 0;
+                      return sum + Math.max(0, original - current);
+                    }, 0)
+                    .toFixed(2)}
+                  )
                 </span>
               </div>
               <button className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2">
